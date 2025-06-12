@@ -3,32 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editor de Escena Interactivo v3 - Three.js</title>
-
-    <!-- Estilos y fuentes -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>Editor de Escena Interactivo</title>
     <link rel="stylesheet" href="editor-escenas.css">
-    
-    <!-- Scripts de utilidades que no tienen dependencias críticas de carga -->
+
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdn.tailwindcss.com 'unsafe-eval' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline'; /* NEW: Allow inline styles */
+        worker-src 'self' blob:;
+        img-src 'self' data:;
+        connect-src 'self' https://cdn.jsdelivr.net ws://127.0.0.1:*; /* IMPORTANT NEW: Allow WebSockets to localhost on any port */
+        "
+    >
+
     <script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.min.js"></script>
 
-    <!-- Importmap DEBE estar en el head para que los módulos se resuelvan correctamente -->
     <script type="importmap">
         {
             "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/",
+                "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/",
                 "tween": "https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@21.0.0/dist/tween.esm.js"
             }
         }
     </script>
 </head>
 <body>
-
-    <!-- Todo tu contenido HTML va aquí como lo tenías -->
     <div id="main-container">
         <div id="palette-panel" class="sidebar">
             <h2>Paleta</h2>
@@ -39,23 +42,21 @@
             <div id="custom-model-container"></div>
             <div id="custom-image-container"></div>
             <hr class="my-6 border-zinc-700">
-             <h2>Suelo</h2>
-             <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="checkbox" id="ground-texture-toggle" class="form-checkbox h-5 w-5 text-indigo-600 bg-zinc-700 border-zinc-600 rounded" checked>
+            <h2>Suelo</h2>
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="ground-texture-toggle" class="form-checkbox h-5 w-5" checked>
                 <span class="text-zinc-300">Textura de césped</span>
             </label>
-             <hr class="my-6 border-zinc-700">
-             <h2>Herramientas</h2>
-             <button id="export-btn" class="btn-base btn-primary">📸 Exportar a PNG</button>
-             <button id="render-video-btn" class="btn-base btn-action">📹 Renderizar a MP4</button>
-             <label for="gltf-input" class="btn-base btn-secondary">📦 Importar GLB</label>
-             <input type="file" id="gltf-input" class="hidden" accept=".glb">
-             <label for="image-input" class="btn-base btn-tertiary">🖼️ Importar Imagen</label>
-             <input type="file" id="image-input" class="hidden" accept="image/png, image/jpeg, image/gif">
+            <hr class="my-6 border-zinc-700">
+            <h2>Herramientas</h2>
+            <button id="export-btn" class="btn-base btn-primary">📸 Exportar a PNG</button>
+            <button id="render-video-btn" class="btn-base btn-action">📹 Renderizar a MP4</button>
+            <label for="gltf-input" class="btn-base btn-secondary">📦 Importar GLB</label>
+            <input type="file" id="gltf-input" class="hidden" accept=".glb">
+            <label for="image-input" class="btn-base btn-tertiary">🖼️ Importar Imagen</label>
+            <input type="file" id="image-input" class="hidden" accept="image/png, image/jpeg, image/gif">
         </div>
-
         <div id="scene-container"></div>
-
         <div id="inspector-panel" class="sidebar">
             <h2>Inspector</h2>
             <div id="inspector-content"><p class="text-zinc-400">Selecciona un objeto.</p></div>
@@ -84,21 +85,6 @@
         </div>
     </div>
 
-    <!-- ===== SECCIÓN CRÍTICA DE SCRIPTS ===== -->
-    <!-- 1. Cargar la librería FFmpeg primero. Se coloca al final del body para asegurar que todo el HTML esté listo. -->
- 
-    
-    <!-- 2. Cargar nuestro script principal DESPUÉS. Como es un módulo, buscará el importmap en el head. -->
     <script type="module" src="editor-escenas.js"></script>
-
 </body>
 </html>
-```
-
-### **Pasos a seguir:**
-
-1.  **Copia y pega** el contenido completo del bloque de código de arriba en tu archivo `index.html`, sobrescribiendo todo lo que tenías.
-2.  **No modifiques** tu archivo `editor-escenas.js`. El código que te di en el paso anterior para la función `renderVideo` es correcto y funcionará con este nuevo `index.html`.
-3.  Guarda los cambios y prueba la funcionalidad de renderizado de nuevo.
-
-Con este cambio, el error debería desaparecer de una vez por todas. La clave es cargar los scripts al final del `<body>` y en el orden correcto para garantizar que las dependencias estén disponibles cuando se necesit

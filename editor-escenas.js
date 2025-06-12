@@ -9,12 +9,13 @@ const sceneContainer = document.getElementById('scene-container');
 const groundSize = 300;
 const gltfLoader = new GLTFLoader();
 const textureLoader = new THREE.TextureLoader();
-// **CORRECCIÓN: Se usa la CDN jsDelivr para la librería principal.**
-const FFMPEG_URL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js';
 
 let scene, camera, renderer, ground, controls, transformControls;
 let raycaster, mouse;
 let grassTexture;
+
+// Declara ffmpeg instance globalmente.
+let ffmpeg; 
 
 // --- GESTIÓN DE ESTADO ---
 const appState = {
@@ -23,14 +24,14 @@ const appState = {
     selectedObject: null,
     loadedGltfScene: null,
     loadedImageObject: null,
-    allObjects: new Map(), // Map<uuid, THREE.Object3D>
-    animatedTextures: [], // Texturas de GIF que necesitan actualización
-    allAnimations: [], // Array de todas las animaciones de la escena
-    animationSetupData: null // { object, startPosition }
+    allObjects: new Map(),
+    animatedTextures: [],
+    allAnimations: [],
+    animationSetupData: null
 };
 
 // --- INICIALIZACIÓN ---
-function init() {
+async function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x333333);
     scene.fog = new THREE.Fog(0x333333, 150, 400);
@@ -74,45 +75,48 @@ function init() {
     mouse = new THREE.Vector2();
 
     setupEventListeners();
-    ensureFFmpegIsReady(); // Se encarga de cargar y activar el renderizador
+    await loadFFmpeg(); // Carga FFmpeg al inicio
     animate();
 }
 
-// --- LÓGICA DE LA UI Y DOM ---
+// Función para cargar FFmpeg (solo se ejecuta una vez al inicio)
+async function loadFFmpeg() {
+    const FFmpegGlobal = window.FFmpeg;
 
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = () => resolve(script);
-        script.onerror = () => reject(new Error(`Error al cargar el script: ${src}`));
-        document.head.appendChild(script);
-    });
-}
+    if (typeof FFmpegGlobal === 'undefined' || typeof FFmpegGlobal.createFFmpeg === 'undefined') {
+        await showModal("Error crítico: La librería de renderizado (ffmpeg.min.js) no se ha cargado. Revisa tu conexión a internet o si un bloqueador de anuncios la está bloqueando.");
+        return;
+    }
 
-async function ensureFFmpegIsReady() {
-    const renderBtn = document.getElementById('render-video-btn');
-    renderBtn.disabled = true;
-    renderBtn.textContent = '📹 Cargando Renderizador...';
-    console.log("Intentando cargar la librería FFmpeg dinámicamente...");
-
+    showModal("Cargando componentes de vídeo (ffmpeg-core)...", { showOk: false, showCancel: false });
     try {
-        await loadScript(FFMPEG_URL);
-        if (window.FFmpeg) {
-            renderBtn.disabled = false;
-            renderBtn.textContent = '📹 Renderizar a MP4';
-            console.log('¡FFmpeg está listo!');
-        } else {
-             throw new Error('El script de FFmpeg se cargó pero window.FFmpeg no está definido.');
-        }
+        ffmpeg = FFmpegGlobal.createFFmpeg({
+            log: true,
+            // --- ÚNICO CAMBIO REALIZADO AQUÍ ---
+            // Se usa @ffmpeg/core-st (single-threaded) que no requiere SharedArrayBuffer.
+            corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/umd/ffmpeg-core.js',
+        });
+
+        ffmpeg.setLogger(({ type, message }) => {
+            // No mostrar el progreso detallado para evitar el spam en la consola de un solo hilo
+            if (type === 'fferr') {
+                 console.error(`[ffmpeg error] ${message}`);
+            } else {
+                 console.log(`[ffmpeg] ${message}`);
+            }
+            updateModalProgress(message); // Aún se puede mostrar en el modal
+        });
+
+        await ffmpeg.load();
+        hideModal();
     } catch (error) {
-        console.error('FALLO CRÍTICO AL CARGAR FFMPEG:', error);
-        renderBtn.textContent = '❌ Error de Renderizador';
-        renderBtn.style.backgroundColor = '#be185d'; // Rojo para indicar error
-        await showModal("No se pudo cargar la librería de renderizado. Revisa la consola (F12) para ver los errores. Podría ser un problema de red o un bloqueador de anuncios.");
+        console.error("Error al cargar FFmpeg:", error);
+        await showModal("Error al cargar la librería de vídeo. Revisa la consola (F12) para más detalles.");
     }
 }
 
+
+// --- LÓGICA DE LA UI Y DOM ---
 function setupEventListeners() {
     document.querySelectorAll('.btn-base[data-type]').forEach(btn => {
         btn.addEventListener('click', () => setPlacementMode(btn.dataset.type));
@@ -209,7 +213,6 @@ function updateObjectList() {
     });
 }
 
-// --- MODALES PERSONALIZADOS ---
 function showModal(text, { isPrompt = false, defaultValue = '', showOk = true, showCancel = true } = {}) {
     return new Promise((resolve) => {
         const modal = document.getElementById('custom-modal');
@@ -256,8 +259,6 @@ function updateModalProgress(text) {
 function hideModal() {
     document.getElementById('custom-modal').style.display = 'none';
 }
-
-// --- LÓGICA DE OBJETOS Y ESCENA ---
 
 function setPlacementMode(type) {
     appState.placementMode = type;
@@ -451,6 +452,11 @@ function resetAllAnimations() {
 }
 
 async function renderVideo() {
+    if (!ffmpeg || !ffmpeg.isLoaded()) {
+        await showModal("La librería de vídeo aún no se ha cargado. Por favor, espera o recarga la página.");
+        return;
+    }
+
     if (appState.allAnimations.length === 0) {
         await showModal("No hay animaciones para renderizar. Añade una animación primero.");
         return;
@@ -460,25 +466,15 @@ async function renderVideo() {
     appState.isRenderingVideo = true;
     document.getElementById('render-video-btn').disabled = true;
     
-    showModal("Iniciando renderizado...", { showOk: false, showCancel: false });
+    // Alerta de UI congelada
+    showModal("Iniciando renderizado... La página se congelará hasta que termine. Por favor, espera.", { showOk: false, showCancel: false });
+
+    // Forzar un pequeño delay para que el modal se renderice antes de congelar la UI
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
-        const { createFFmpeg, fetchFile } = window.FFmpeg;
-
-        const ffmpeg = createFFmpeg({
-            log: true,
-            // **CORRECCIÓN: Apuntar también el corePath a jsdelivr para consistencia.**
-            corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/ffmpeg-core.js',
-        });
+        const { fetchFile } = FFmpeg;
         
-        ffmpeg.setLogger(({ type, message }) => {
-            updateModalProgress(`[${type}] ${message}`);
-            console.log(`[${type}] ${message}`);
-        });
-        
-        updateModalProgress("Cargando ffmpeg-core...");
-        await ffmpeg.load();
-
         const totalDuration = Math.max(...appState.allAnimations.map(a => a.duration), 0);
         const FPS = 30;
         const totalFrames = Math.ceil(totalDuration * FPS);
@@ -498,22 +494,23 @@ async function renderVideo() {
 
         for (let i = 0; i <= totalFrames; i++) {
             const time = i * (1000 / FPS);
-            updateModalProgress(`Capturando fotograma ${i} / ${totalFrames}`);
+            updateModalProgress(`Renderizando... La UI está congelada. Capturando fotograma ${i} / ${totalFrames}`);
             
             TWEEN.update(time);
             
             renderer.render(scene, camera);
             const frameDataUrl = renderer.domElement.toDataURL('image/png');
-            ffmpeg.FS('writeFile', `frame-${String(i).padStart(5, '0')}.png`, await fetchFile(frameDataUrl));
+            const data = await fetchFile(frameDataUrl);
+            ffmpeg.FS('writeFile', `frame-${String(i).padStart(5, '0')}.png`, data);
         }
         
-        updateModalProgress("Codificando vídeo con FFMPEG...");
-        await ffmpeg.run('-r', String(FPS), '-i', 'frame-%05d.png', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', 'escena_animada.mp4');
+        updateModalProgress("Codificando vídeo... La UI sigue congelada...");
+        await ffmpeg.run('-framerate', String(FPS), '-i', 'frame-%05d.png', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(FPS), 'escena_animada.mp4');
         
         updateModalProgress("Finalizando y preparando descarga...");
-        const data = ffmpeg.FS('readFile', 'escena_animada.mp4');
+        const videoData = ffmpeg.FS('readFile', 'escena_animada.mp4');
         
-        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        const blob = new Blob([videoData.buffer], { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -525,7 +522,7 @@ async function renderVideo() {
 
     } catch (error) {
         console.error("Error durante el renderizado del vídeo:", error);
-        await showModal("Ocurrió un error durante el renderizado. Revisa la consola para más detalles.");
+        await showModal(`Ocurrió un error durante el renderizado. Revisa la consola (F12) para más detalles.`);
     } finally {
         appState.isRenderingVideo = false;
         document.getElementById('render-video-btn').disabled = false;
@@ -569,6 +566,8 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update(); 
 
+    // Solo actualizar TWEEN si no estamos renderizando el video, 
+    // ya que el renderizado de video controla sus propios pasos de tiempo.
     if (!appState.isRenderingVideo) {
         TWEEN.update();
     }
@@ -672,8 +671,6 @@ function exportToPNG() {
     link.href = renderer.domElement.toDataURL('image/png');
     link.click();
 }
-
-// --- Fábricas de Objetos Primitivos y Texturas ---
 
 function createTree() {
     const tree = new THREE.Group();
