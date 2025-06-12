@@ -1,0 +1,119 @@
+ body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            background-color: #18181b; /* zinc-900 */
+            color: #f4f4f5; /* zinc-100 */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #main-container {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        #scene-container {
+            flex-grow: 1;
+            position: relative;
+            cursor: grab;
+        }
+        #scene-container:active { cursor: grabbing; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .sidebar {
+            width: 280px;
+            background-color: #27272a; /* zinc-800 */
+            padding: 1.5rem;
+            overflow-y: auto;
+            border-right: 1px solid #3f3f46; /* zinc-700 */
+            flex-shrink: 0;
+        }
+        #inspector-panel {
+            border-right: none;
+            border-left: 1px solid #3f3f46; /* zinc-700 */
+        }
+        .sidebar h2 {
+            font-size: 1.25rem; font-weight: 700;
+            margin-top: 0; margin-bottom: 1.5rem;
+            color: #e4e4e7; /* zinc-200 */
+        }
+        .btn-base {
+            display: block; width: 100%;
+            padding: 0.75rem 1rem; margin-bottom: 0.75rem;
+            background-color: #3f3f46; /* zinc-700 */
+            border: 1px solid #52525b; /* zinc-600 */
+            color: #f4f4f5; /* zinc-100 */
+            border-radius: 0.5rem; font-weight: 500;
+            cursor: pointer; text-align: center;
+            transition: all 0.2s ease;
+        }
+        .btn-base:hover { filter: brightness(1.2); }
+        .btn-base:disabled { background-color: #52525b; cursor: not-allowed; filter: brightness(0.8); }
+        .btn-base.active {
+            background-color: #4f46e5; /* indigo-600 */
+            border-color: #6366f1; /* indigo-500 */
+            color: white;
+        }
+        .btn-primary { background-color: #16a34a; border-color: #22c55e; } /* green */
+        .btn-secondary { background-color: #a16207; border-color: #ca8a04; } /* yellow */
+        .btn-tertiary { background-color: #0d9488; border-color: #14b8a6; } /* teal */
+        .btn-danger { background-color: #be185d; border-color: #db2777; } /* pink */
+        .btn-action { background-color: #c026d3; border-color: #d946ef; color: white;} /* fuchsia */
+
+        #object-list { list-style: none; padding: 0; }
+        #object-list li {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.6rem 0.75rem; background-color: #3f3f46;
+            border-radius: 0.375rem; margin-bottom: 0.5rem; font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+        #object-list li span { flex-grow: 1; cursor: pointer; padding: 0.25rem; }
+        #object-list li.selected { background-color: #4f46e5; color: white; }
+        .delete-btn {
+            background: #ef4444; color: white; border: none;
+            border-radius: 50%; width: 24px; height: 24px;
+            cursor: pointer; font-weight: bold; line-height: 24px;
+            text-align: center; transition: background-color 0.2s;
+            flex-shrink: 0;
+        }
+        .delete-btn:hover { background: #dc2626; }
+        .transform-controls { display: flex; gap: 0.5rem; }
+
+        /* --- Timeline Panel --- */
+        #timeline-panel {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 150px;
+            background-color: #27272a; border-top: 1px solid #3f3f46;
+            display: flex; flex-direction: column; padding: 1rem; box-sizing: border-box;
+        }
+        #timeline-controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
+        #timeline-tracks {
+            flex-grow: 1; background-color: #18181b; border-radius: 0.5rem;
+            padding: 0.5rem; overflow-x: auto; white-space: nowrap;
+        }
+        .animation-track {
+            background-color: #4f46e5; color: white; padding: 0.5rem 1rem;
+            border-radius: 0.375rem; margin-bottom: 0.5rem; font-size: 0.8rem;
+            display: inline-block; margin-right: 0.5rem;
+        }
+
+        /* --- Custom Modal --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: #27272a; padding: 2rem;
+            border-radius: 0.75rem; border: 1px solid #3f3f46;
+            width: 90%; max-width: 400px;
+            text-align: center;
+        }
+        .modal-content p { margin-top: 0; margin-bottom: 1.5rem; color: #e4e4e7;}
+        .modal-input {
+            width: 100%; padding: 0.75rem; border-radius: 0.5rem;
+            background-color: #3f3f46; border: 1px solid #52525b;
+            color: white; margin-bottom: 1.5rem;
+        }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 1rem; }
+        #modal-progress { color: #a5b4fc; font-style: italic; }

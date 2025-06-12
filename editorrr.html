@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Escena Interactivo v3 - Three.js</title>
+        <link rel="stylesheet" href="styles.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+
+</head>
+<body>
+
+    <div id="main-container">
+        <div id="palette-panel" class="sidebar">
+            <h2>Paleta</h2>
+            <button class="btn-base" data-type="tree">🌳 Añadir Árbol</button>
+            <button class="btn-base" data-type="red_flower">🌸 Añadir Flor Roja</button>
+            <button class="btn-base" data-type="yellow_flower">🌼 Añadir Flor Amarilla</button>
+            <button class="btn-base" data-type="pyramid">🔺 Añadir Pirámide</button>
+            <div id="custom-model-container"></div>
+            <div id="custom-image-container"></div>
+            <hr class="my-6 border-zinc-700">
+             <h2>Suelo</h2>
+             <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="ground-texture-toggle" class="form-checkbox h-5 w-5 text-indigo-600 bg-zinc-700 border-zinc-600 rounded" checked>
+                <span class="text-zinc-300">Textura de césped</span>
+            </label>
+             <hr class="my-6 border-zinc-700">
+             <h2>Herramientas</h2>
+             <button id="export-btn" class="btn-base btn-primary">📸 Exportar a PNG</button>
+             <button id="start-realtime-record-btn" class="btn-base btn-action">🔴 Grabar Tiempo Real</button>
+             <button id="stop-realtime-record-btn" class="btn-base btn-danger" style="display: none;">⬛ Detener Grabación</button>
+             <label for="gltf-input" class="btn-base btn-secondary">📦 Importar GLB</label>
+             <input type="file" id="gltf-input" class="hidden" accept=".glb">
+             <label for="image-input" class="btn-base btn-tertiary">🖼️ Importar Imagen</label>
+             <input type="file" id="image-input" class="hidden" accept="image/png, image/jpeg, image/gif">
+        </div>
+
+        <div id="scene-container"></div>
+
+        <div id="inspector-panel" class="sidebar">
+            <h2>Inspector</h2>
+            <div id="inspector-content"><p class="text-zinc-400">Selecciona un objeto.</p></div>
+            <hr class="my-6 border-zinc-700">
+            <h2>Objetos en Escena</h2>
+            <ul id="object-list"></ul>
+        </div>
+    </div>
+
+    <div id="timeline-panel">
+        <div id="timeline-controls">
+            <button id="play-btn" class="btn-base w-auto">▶️ Play</button>
+            <button id="pause-btn" class="btn-base w-auto">⏸️ Pausa</button>
+            <button id="reset-btn" class="btn-base w-auto">⏪ Reset</button>
+        </div>
+        <div id="timeline-tracks"><p class="text-zinc-400 text-sm">Añade una animación.</p></div>
+    </div>
+
+    <div id="custom-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <p id="modal-text"></p>
+            <p id="modal-progress"></p>
+            <input type="text" id="modal-input" class="modal-input" style="display: none;">
+            <div class="modal-buttons">
+                <button id="modal-cancel-btn" class="btn-base w-auto">Cancelar</button>
+                <button id="modal-ok-btn" class="btn-base w-auto btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+ <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/",
+            "tween": "https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@21.0.0/dist/tween.esm.js",
+            "@ffmpeg/ffmpeg": "https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.js",
+            "@ffmpeg/util": "https://unpkg.com/@ffmpeg/util@0.12.7/dist/util.js"
+        }
+    }
+</script>
+<script  type="module" src="editor-escenas-main.js"></script>
+  
+</body>
+</html>
