@@ -1,9 +1,9 @@
-/* Estilos Generales */
+/* General Styles */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #000; /* Fondo negro por defecto */
+    background-color: #000; /* Default black background */
     color: #fff;
     display: flex;
     justify-content: center;
@@ -15,14 +15,14 @@ body {
 #app-container {
     width: 100%;
     height: 100%;
-    background-color: #000; /* Fondo negro para todas las pantallas */
+    background-color: #000; /* Black background for all screens */
     display: flex;
     flex-direction: column;
     overflow: hidden;
     position: relative;
 }
 
-/* Utilidades de Pantalla */
+/* Screen Utilities */
 .screen {
     display: none;
     width: 100%;
@@ -35,7 +35,7 @@ body {
     display: flex;
 }
 
-/* Pantalla de Login Minimalista */
+/* Minimalist Login Screen */
 #login-screen {
     justify-content: center;
     align-items: center;
@@ -47,7 +47,7 @@ body {
     text-align: center;
     width: 80%;
     max-width: 400px;
-    padding: 20px; /* Añadido para un poco de espacio interior */
+    padding: 20px;
 }
 
 .login-box h1 {
@@ -64,66 +64,41 @@ body {
     margin-bottom: 40px;
 }
 
-/* Estilo para el campo de entrada de nombre de usuario */
-#username-input {
-    width: calc(100% - 20px); /* Ajuste para el padding */
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid #555; /* Borde más visible */
-    color: #fff;
-    font-size: 1.5em;
-    padding: 10px;
-    margin-bottom: 30px;
-    text-align: center;
-    outline: none;
-    transition: border-color 0.3s, box-shadow 0.3s; /* Añadido box-shadow para enfoque */
-    border-radius: 5px; /* Bordes ligeramente redondeados */
-}
-
-#username-input:focus {
-    border-bottom-color: #007bff; /* Color al enfocar */
-    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.2); /* Sutil sombra al enfocar */
-}
-
-/* Estilo para el botón de entrada */
-#login-btn {
+/* Style for Google Login Button */
+.google-btn {
     padding: 12px 30px;
-    border: 1px solid #007bff; /* Borde azul */
+    border: none;
     border-radius: 50px;
-    background: #007bff; /* Fondo azul */
+    background-color: #4285F4; /* Google Blue */
     color: white;
-    font-size: 1.1em; /* Fuente un poco más grande */
+    font-size: 1.1em;
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.3s, border-color 0.3s, opacity 0.3s, transform 0.2s; /* Transiciones adicionales */
-    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4); /* Sombra para efecto 3D */
-    opacity: 1; /* Por defecto, la opacidad es 1 para el estado activo */
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.2s;
+    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
 }
 
-/* Estado del botón cuando está deshabilitado */
-#login-btn:disabled {
-    opacity: 0.3; /* Opacidad reducida cuando está deshabilitado */
-    cursor: not-allowed;
-    background-color: #555; /* Fondo gris para deshabilitado */
-    border-color: #555;
-    box-shadow: none;
-    pointer-events: none; /* Deshabilita los eventos del ratón cuando está deshabilitado */
+.google-btn:hover {
+    background-color: #357ae8; /* Darker blue on hover */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(66, 133, 244, 0.6);
 }
 
-#login-btn:hover:not(:disabled) {
-    background-color: #0056b3; /* Azul más oscuro al pasar el ratón */
-    border-color: #0056b3;
-    transform: translateY(-2px); /* Pequeño levantamiento */
-    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.6);
+.google-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(66, 133, 244, 0.3);
 }
 
-#login-btn:active:not(:disabled) {
-    transform: translateY(0); /* Vuelve a la posición normal al hacer clic */
-    box-shadow: 0 2px 5px rgba(0, 123, 255, 0.3);
+.google-btn .fab {
+    font-size: 1.2em; /* Slightly larger icon */
 }
 
 
-/* Pantalla Principal (Lobby) Minimalista */
+/* Main Screen (Lobby) Minimalist */
 #main-screen {
     padding: 30px 40px;
     color: #fff;
@@ -255,61 +230,63 @@ ul li:hover {
 .btn-decline { color: #e74c3c; }
 
 
-/* Pantalla de Videollamada Inmersiva */
+/* Immersive Video Call Screen */
 #video-call-screen {
     background-color: #000;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    position: relative; /* Asegura que sea un contexto de posicionamiento para los hijos absolutos */
+    position: relative; /* Ensures it's a positioning context for absolute children */
 }
 
 .video-grid {
     width: 100%;
     height: 100%;
-    position: relative; /* Este es el contenedor principal para los videos */
-    display: flex; /* Usar flexbox para que el video remoto ocupe todo el espacio */
+    position: relative; /* This is the main container for videos */
+    display: flex; /* Use flexbox for remote video to take up full space */
     justify-content: center;
     align-items: center;
 }
 
 .video-wrapper {
-    /* Estilos base para todos los contenedores de video */
+    /* Base styles for all video containers */
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #1a1a1a; /* Fondo de placeholder */
+    background-color: #1a1a1a; /* Placeholder background */
     overflow: hidden;
-    position: relative; /* Para el user-tag */
+    position: relative; /* For user-tag */
 }
 
-.video-wrapper-remote { /* Clase específica para el video remoto */
+.video-wrapper-remote { /* Specific class for remote video */
     width: 100%;
     height: 100%;
-    flex-grow: 1; /* Hace que ocupe todo el espacio disponible */
+    flex-grow: 1; /* Makes it take up all available space */
 }
 
 .video-wrapper.local {
-    position: absolute; /* Posicionarlo como un overlay */
+    position: absolute; /* Position it as an overlay */
     width: 20%;
-    max-width: 220px; /* Ancho máximo para el video local */
-    height: auto; /* Dejar que la altura se ajuste a la relación de aspecto */
-    aspect-ratio: 16/9; /* Mantener la relación de aspecto */
+    max-width: 220px; /* Max width for local video */
+    height: auto; /* Let height adjust to aspect ratio */
+    aspect-ratio: 16/9; /* Maintain aspect ratio */
     bottom: 20px;
     right: 20px;
     top: auto;
     left: auto;
-    z-index: 10; /* Asegura que esté por encima del video remoto */
+    z-index: 10; /* Ensures it's above the remote video */
     border: 2px solid rgba(255,255,255,0.2);
     border-radius: 8px;
     overflow: hidden;
+    /* Hidden by default, shown only when in a call screen */
+    display: none;
 }
 
 video {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Asegura que el video llene el contenedor sin distorsión */
+    object-fit: cover; /* Ensures video fills container without distortion */
     background-color: #000;
 }
 
@@ -329,14 +306,20 @@ video {
     bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    /* Hidden by default, shown only when in a call screen */
+    display: none;
+    justify-content: center; /* Ensures content is centered when displayed */
+    align-items: center; /* Ensures content is centered when displayed */
     padding: 10px;
     background-color: rgba(0,0,0,0.3);
     border-radius: 50px;
     gap: 15px;
     z-index: 20;
+}
+
+#video-call-screen.active .call-controls,
+#video-call-screen.active .video-wrapper.local {
+    display: flex; /* Show them when video call screen is active */
 }
 
 .control-btn {
@@ -367,28 +350,33 @@ video {
     background-color: #c0392b;
 }
 
-/* Estilos del Chat P2P */
+/* P2P Chat Styles */
 .p2p-chat-container {
     position: absolute;
     bottom: 20px;
     left: 20px;
-    width: 300px; /* Ancho fijo para el chat */
-    height: 400px; /* Altura inicial del chat */
+    width: 300px; /* Fixed width for chat */
+    height: 400px; /* Initial chat height */
     background-color: rgba(0, 0, 0, 0.7);
     border-radius: 10px;
-    display: flex;
+    display: none; /* Hidden by default, shown only when in a call screen */
     flex-direction: column;
     overflow: hidden;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     transition: all 0.3s ease-in-out;
-    z-index: 30; /* Aumentado el z-index para que esté por encima de todo */
+    z-index: 30; /* Increased z-index to be above everything */
 }
 
+#video-call-screen.active #p2p-chat-container {
+    display: flex; /* Show the chat container when video call screen is active */
+}
+
+
 .p2p-chat-container.minimized {
-    height: 50px; /* Altura cuando está minimizado (solo el header) */
-    width: 250px; /* Ancho un poco más pequeño cuando está minimizado */
-    bottom: 20px; /* Posición cuando está minimizado */
-    left: 20px; /* Posición cuando está minimizado */
+    height: 50px; /* Height when minimized (header only) */
+    width: 250px; /* Slightly smaller width when minimized */
+    bottom: 20px; /* Position when minimized */
+    left: 20px; /* Position when minimized */
 }
 
 .chat-header {
@@ -398,7 +386,7 @@ video {
     padding: 10px 15px;
     background-color: rgba(0, 0, 0, 0.8);
     border-bottom: 1px solid #333;
-    cursor: pointer; /* Para indicar que es cliqueable para minimizar/maximizar */
+    cursor: pointer; /* To indicate it's clickable for minimize/maximize */
     user-select: none;
 }
 
@@ -423,7 +411,7 @@ video {
 }
 
 .p2p-chat-container.minimized .chat-toggle-btn {
-    transform: rotate(180deg); /* Gira la flecha hacia arriba cuando está minimizado */
+    transform: rotate(180deg); /* Rotate arrow up when minimized */
 }
 
 .chat-messages {
@@ -432,7 +420,7 @@ video {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Espacio entre mensajes */
+    gap: 8px; /* Space between messages */
     scroll-behavior: smooth;
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
@@ -444,7 +432,7 @@ video {
 
 .p2p-chat-container.minimized .chat-messages,
 .p2p-chat-container.minimized .chat-input-area {
-    display: none; /* Oculta el contenido cuando está minimizado */
+    display: none; /* Hide content when minimized */
 }
 
 .chat-message {
@@ -459,18 +447,18 @@ video {
 
 .chat-message.self {
     align-self: flex-end;
-    background-color: #007bff; /* Azul para mensajes propios */
+    background-color: #007bff; /* Blue for own messages */
     border-bottom-right-radius: 5px;
 }
 
 .chat-message.other {
     align-self: flex-start;
-    background-color: #333; /* Gris oscuro para mensajes de otros */
+    background-color: #333; /* Dark grey for others' messages */
     border-bottom-left-radius: 5px;
 }
 
 .chat-message a {
-    color: #87ceeb; /* Un azul claro para enlaces */
+    color: #87ceeb; /* Light blue for links */
     text-decoration: underline;
 }
 
@@ -523,9 +511,9 @@ video {
     background-color: #0056b3;
 }
 
-/* Modal de llamada entrante */
+/* Incoming Call Modal */
 .modal-container {
-    display: none; /* Oculto por defecto */
+    display: none; /* Hidden by default */
     position: fixed;
     top: 0;
     left: 0;

@@ -5,7 +5,7 @@ import {
     query, where
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import {
-    getAuth, onAuthStateChanged, signInAnonymously // Solo signInAnonymously
+    getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -20,28 +20,31 @@ const firebaseConfig = {
   measurementId: "G-2G31LLJY1T"
 };
 
-// --- INICIALIZACIÓN DE SERVICIOS ---
+// --- INITIALIZE SERVICES ---
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const provider = new GoogleAuthProvider(); // Google Auth Provider instance
 
-// --- REFERENCIAS AL DOM ---
+// --- DOM REFERENCES ---
 const loginScreen = document.getElementById('login-screen');
 const mainScreen = document.getElementById('main-screen');
 const videoCallScreen = document.getElementById('video-call-screen');
-const usernameInput = document.getElementById('username-input');
-const loginBtn = document.getElementById('login-btn');
+const googleLoginBtn = document.getElementById('google-login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const currentUsernameSpan = document.getElementById('current-username');
 const allUsersList = document.getElementById('all-users-list');
 const friendsList = document.getElementById('friends-list');
 const friendRequestsList = document.getElementById('friend-requests-list');
+
+// Video Call UI Elements
 const localVideo = document.getElementById('local-video');
 const remoteVideo = document.getElementById('remote-video');
 const toggleMicBtn = document.getElementById('toggle-mic-btn');
 const toggleCameraBtn = document.getElementById('toggle-camera-btn');
-const toggleScreenShareBtn = document.getElementById('toggle-screen-share-btn'); // Nuevo botón
+const toggleScreenShareBtn = document.getElementById('toggle-screen-share-btn');
 const endCallBtn = document.getElementById('end-call-btn');
+
 const incomingCallModal = document.getElementById('incoming-call-modal');
 const callerNameSpan = document.getElementById('caller-name');
 const acceptCallBtn = document.getElementById('accept-call-btn');
@@ -54,11 +57,8 @@ const toggleChatBtn = document.getElementById('toggle-chat-btn');
 const chatMessagesContainer = document.getElementById('chat-messages');
 const chatMessageInput = document.getElementById('chat-message-input');
 const sendChatMessageBtn = document.getElementById('send-chat-message-btn');
-// const attachImageInput = document.getElementById('attach-image-input'); // Para futura implementación de subida de archivo
-// const attachImageBtn = document.getElementById('attach-image-btn'); // Para futura implementación de subida de archivo
 
-
-// --- VARIABLES DE ESTADO GLOBAL ---
+// --- GLOBAL STATE VARIABLES ---
 let currentUser = null;
 let peer = null;
 let localStream = null;
@@ -67,11 +67,13 @@ let incomingCallData = null;
 let userUnsubscribe = null;
 let usersUnsubscribe = null;
 let callsUnsubscribe = null;
-let dataConnection = null; // Variable para la conexión de datos PeerJS
-let isSharingScreen = false; // Nuevo estado para controlar la compartición de pantalla
+let dataConnection = null; // Variable for PeerJS data connection
+let isSharingScreen = false; // New state to control screen sharing
 
+let peerInitAttempts = 0;
+const MAX_PEER_INIT_ATTEMPTS = 5;
 
-// --- FUNCIONES DE GESTIÓN DE PANTALLAS ---
+// --- SCREEN MANAGEMENT FUNCTIONS ---
 function showScreen(screen) {
     loginScreen.classList.remove('active');
     mainScreen.classList.remove('active');
@@ -79,7 +81,7 @@ function showScreen(screen) {
     screen.classList.add('active');
 }
 
-// --- FUNCION PARA MOSTRAR MENSAJES TEMPORALES (reemplaza alert) ---
+// --- FUNCTION TO SHOW TEMPORARY MESSAGES (replaces alert) ---
 function showMessage(message, type = 'info', duration = 3000) {
     const messageModal = document.createElement('div');
     messageModal.classList.add('app-message-modal', type);
@@ -121,47 +123,29 @@ function showMessage(message, type = 'info', duration = 3000) {
     }, duration);
 }
 
-// --- LÓGICA DE AUTENTICACIÓN Y USUARIO ---
+// --- AUTHENTICATION AND USER LOGIC ---
 
-// Escucha los cambios en el campo de texto del nombre de usuario para habilitar/deshabilitar el botón de login
-usernameInput.addEventListener('input', () => {
-    // Habilita el botón si el campo tiene al menos un carácter no vacío
-    loginBtn.disabled = usernameInput.value.trim().length === 0;
-});
-
-// Manejador del botón "Entrar" para el inicio de sesión anónimo
-loginBtn.addEventListener('click', async () => {
-    const username = usernameInput.value.trim();
-    if (username.length === 0) {
-        showMessage("Por favor, ingresa un nombre de usuario.", 'error');
-        return;
-    }
-
+// Event handler for Google login button
+googleLoginBtn.addEventListener('click', async () => {
     try {
-        // Iniciar sesión anónimamente con Firebase
-        console.log("Iniciando signInAnonymously...");
-        const userCredential = await signInAnonymously(auth);
-        const user = userCredential.user;
-        console.log("Usuario autenticado anónimamente. UID:", user.uid);
+        // Sign in with Google popup
+        console.log("Attempting Google Sign-In...");
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        console.log("Google user authenticated. UID:", user.uid, "Display Name:", user.displayName);
 
-        // Guardar o actualizar el perfil del usuario en Firestore
-        const userRef = doc(db, 'users', user.uid);
-        await setDoc(userRef, {
-            uid: user.uid,
-            username: username,
-            isOnline: true,
-            lastSeen: serverTimestamp(),
-            friends: [],
-            friendRequests: []
-        }, { merge: true }); // Usar merge:true para no sobrescribir si el UID ya existe
-
-        console.log("Perfil de usuario en Firestore actualizado/creado para:", username);
-        // La pantalla se mostrará y los listeners se inicializarán en onAuthStateChanged
-        showMessage(`¡Bienvenido, ${username}!`, 'success');
+        // The onAuthStateChanged listener will handle creating/updating the user profile in Firestore
+        // and navigating to the main screen.
+        showMessage(`¡Bienvenido, ${user.displayName}!`, 'success');
 
     } catch (error) {
-        console.error("Error durante el inicio de sesión anónimo o al guardar el perfil:", error);
-        showMessage("No se pudo iniciar sesión. Inténtalo de nuevo.", 'error');
+        console.error("Error during Google Sign-In:", error);
+        // Handle specific errors like popup closed by user
+        if (error.code === 'auth/popup-closed-by-user') {
+            showMessage("El inicio de sesión fue cancelado.", 'info');
+        } else {
+            showMessage("No se pudo iniciar sesión con Google. Inténtalo de nuevo.", 'error');
+        }
     }
 });
 
@@ -171,98 +155,77 @@ logoutBtn.addEventListener('click', async () => {
         if (currentUser) {
             const userRef = doc(db, 'users', currentUser.uid);
             await updateDoc(userRef, { isOnline: false, lastSeen: serverTimestamp() });
-            console.log("Estado online actualizado a offline.");
+            console.log("Online status updated to offline.");
         }
-        await auth.signOut(); // Usa auth.signOut() para cerrar sesión de cualquier tipo
+        await auth.signOut(); // Use auth.signOut() to log out
         cleanUp();
         showScreen(loginScreen);
         showMessage("Sesión cerrada correctamente.", 'info');
-        // Limpiar el campo de entrada y deshabilitar el botón al salir
-        usernameInput.value = '';
-        loginBtn.disabled = true;
     } catch (error) {
-        console.error("Error al cerrar sesión:", error);
+        console.error("Error logging out:", error);
         showMessage("Error al cerrar sesión. Inténtalo de nuevo.", 'error');
     }
 });
 
-// onAuthStateChanged se disparará cada vez que el estado de autenticación cambie
+// onAuthStateChanged will trigger every time the authentication state changes
 onAuthStateChanged(auth, async (user) => {
-    console.log("onAuthStateChanged disparado. Objeto user inicial:", user);
+    console.log("onAuthStateChanged triggered. Initial user object:", user);
 
     if (user) {
-        // Usuario logueado (ya sea anónimo o por otro método si se añade)
-        currentUser = { uid: user.uid }; // Inicializa currentUser con el UID para la primera consulta
-        console.log("Usuario detectado. UID:", user.uid);
+        // User logged in (Google user)
+        currentUser = { uid: user.uid }; // Initialize currentUser with UID for the first query
+        console.log("User detected. UID:", user.uid);
 
-        // Intenta cargar el perfil completo desde Firestore.
-        // Si no existe, significa que es un nuevo usuario anónimo que acaba de iniciar sesión
-        // y necesitamos crear su perfil con el nombre de usuario de la caja de texto.
+        // Get user profile from Firestore
         const userRef = doc(db, 'users', user.uid);
         try {
             const userDoc = await getDoc(userRef);
             if (userDoc.exists()) {
-                // Si el documento existe, actualiza currentUser con los datos de Firestore
+                // If the document exists, update currentUser with Firestore data
                 currentUser = userDoc.data();
-                console.log("Perfil de usuario cargado desde Firestore:", currentUser.username);
-                // Si el nombre de usuario del input no coincide con el del perfil, actualízalo
-                // Esto es útil si el usuario cierra sesión y vuelve a entrar con otro nombre en el input
-                const enteredUsername = usernameInput.value.trim();
-                if (enteredUsername && currentUser.username !== enteredUsername) {
-                    await updateDoc(userRef, { username: enteredUsername, isOnline: true, lastSeen: serverTimestamp() });
-                    currentUser.username = enteredUsername; // Actualizar el objeto local
-                    console.log("Nombre de usuario actualizado en Firestore y localmente.");
-                } else if (currentUser.isOnline !== true) {
-                    // Si el usuario no estaba marcado como online, actualiza su estado
-                     await updateDoc(userRef, { isOnline: true, lastSeen: serverTimestamp() });
-                     console.log("Estado online actualizado a true.");
+                console.log("User profile loaded from Firestore:", currentUser.username);
+                // Update username and online status if necessary
+                if (currentUser.username !== user.displayName || currentUser.isOnline !== true) {
+                    await updateDoc(userRef, { username: user.displayName, isOnline: true, lastSeen: serverTimestamp() });
+                    currentUser.username = user.displayName; // Update local object
+                    currentUser.isOnline = true;
+                    console.log("Username and online status updated in Firestore and locally.");
                 }
-
             } else {
-                // Esto ocurrirá para usuarios anónimos que se autentican por primera vez
-                // o si el documento de usuario fue eliminado.
-                const username = usernameInput.value.trim();
-                if (username.length > 0) {
-                    await setDoc(userRef, {
-                        uid: user.uid,
-                        username: username,
-                        isOnline: true,
-                        lastSeen: serverTimestamp(),
-                        friends: [],
-                        friendRequests: []
-                    });
-                    currentUser = {
-                        uid: user.uid,
-                        username: username,
-                        isOnline: true,
-                        lastSeen: new Date(), // Usar new Date() ya que serverTimestamp() es asíncrono
-                        friends: [],
-                        friendRequests: []
-                    };
-                    console.log("Nuevo perfil de usuario anónimo creado en Firestore.");
-                } else {
-                    console.error("No se pudo obtener el nombre de usuario para un nuevo usuario anónimo.");
-                    // Forzar cierre de sesión si no hay nombre de usuario para el nuevo perfil
-                    await auth.signOut();
-                    cleanUp();
-                    showScreen(loginScreen);
-                    showMessage("Error: No se pudo establecer el nombre de usuario.", 'error');
-                    return;
-                }
+                // This will happen for new Google users
+                const username = user.displayName || user.email || `User_${user.uid.substring(0, 5)}`; // Fallback for username
+                await setDoc(userRef, {
+                    uid: user.uid,
+                    username: username,
+                    isOnline: true,
+                    lastSeen: serverTimestamp(),
+                    friends: [],
+                    friendRequests: []
+                });
+                currentUser = {
+                    uid: user.uid,
+                    username: username,
+                    isOnline: true,
+                    lastSeen: new Date(), // Use new Date() since serverTimestamp() is async
+                    friends: [],
+                    friendRequests: []
+                };
+                showMessage(`Welcome, ${username}!`, 'success');
+                console.log("New Google user profile created in Firestore.");
             }
             initializeAppData(currentUser.uid);
             showScreen(mainScreen);
 
         } catch (firestoreError) {
-            console.error("Error al interactuar con Firestore en onAuthStateChanged:", firestoreError);
-            showMessage(`Error al cargar/crear perfil de usuario: ${firestoreError.message}.`, 'error', 7000);
-            await auth.signOut(); // Forzar cierre de sesión en caso de error grave
+            console.error("Error interacting with Firestore in onAuthStateChanged:", firestoreError);
+            showMessage(`Error loading/creating user profile: ${firestoreError.message}.`, 'error', 7000);
+            await auth.signOut(); // Force logout in case of serious error
             cleanUp();
             showScreen(loginScreen);
         }
     } else {
-        // No hay usuario autenticado (después de logout o al cargar la página por primera vez)
-        console.log("No hay usuario autenticado. Mostrando pantalla de login.");
+        // No authenticated user (after logout or first page load)
+        console.log("No authenticated user. Showing login screen.");
         cleanUp();
         showScreen(loginScreen);
     }
@@ -270,62 +233,64 @@ onAuthStateChanged(auth, async (user) => {
 
 
 function cleanUp() {
-    if (userUnsubscribe) { userUnsubscribe(); console.log("userUnsubscribe desactivado."); }
-    if (usersUnsubscribe) { usersUnsubscribe(); console.log("usersUnsubscribe desactivado."); }
-    if (callsUnsubscribe) { callsUnsubscribe(); console.log("callsUnsubscribe desactivado."); }
+    if (userUnsubscribe) { userUnsubscribe(); console.log("userUnsubscribe deactivated."); }
+    if (usersUnsubscribe) { usersUnsubscribe(); console.log("usersUnsubscribe deactivated."); }
+    if (callsUnsubscribe) { callsUnsubscribe(); console.log("callsUnsubscribe deactivated."); }
 
     if (peer) { 
         if (dataConnection) {
             dataConnection.close();
             dataConnection = null;
-            console.log("PeerJS DataConnection cerrada.");
+            console.log("PeerJS DataConnection closed.");
         }
         peer.destroy(); 
-        console.log("PeerJS destruido."); 
+        peer = null; // Ensure peer is null after destroy
+        console.log("PeerJS destroyed."); 
     }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
-        console.log("Stream local detenido.");
+        localStream = null; // Ensure localStream is null after stopping
+        console.log("Local stream stopped.");
     }
 
     currentUser = null;
-    peer = null;
-    localStream = null;
     currentCall = null;
-    incomingCallData = null; // Limpiar los datos de la llamada entrante
-    isSharingScreen = false; // Resetear estado de compartir pantalla
-    toggleScreenShareBtn.classList.remove('active-red'); // Desactivar el botón
+    incomingCallData = null; // Clear incoming call data
+    isSharingScreen = false; // Reset screen sharing state
 
     allUsersList.innerHTML = '';
     friendsList.innerHTML = '';
     friendRequestsList.innerHTML = '';
-    chatMessagesContainer.innerHTML = ''; // Limpiar mensajes del chat
-    p2pChatContainer.classList.add('minimized'); // Minimizar chat al limpiar
+    chatMessagesContainer.innerHTML = ''; // Clear chat messages
+    p2pChatContainer.classList.add('minimized'); // Minimize chat on cleanup
     toggleChatBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; // Reset chat toggle icon to up
-    console.log("Estado de la aplicación limpiado.");
+    console.log("Application state cleaned up.");
+
+    // Reset peer initialization attempts
+    peerInitAttempts = 0;
 }
 
-// --- LÓGICA PRINCIPAL DE LA APLICACIÓN (el resto del código no necesita cambios) ---
+// --- MAIN APPLICATION LOGIC ---
 
 async function initializeAppData(uid) {
-    console.log("initializeAppData: Iniciando para UID:", uid);
+    console.log("initializeAppData: Starting for UID:", uid);
     const userRef = doc(db, 'users', uid);
 
     userUnsubscribe = onSnapshot(userRef, (doc) => {
-        console.log("onSnapshot userRef: Datos de currentUser actualizados.");
+        console.log("onSnapshot userRef: currentUser data updated.");
         currentUser = doc.data();
         if (currentUser) {
             currentUsernameSpan.textContent = currentUser.username;
             renderFriendRequests(currentUser.friendRequests || []);
-            initializePeerConnection();
+            initializePeerConnection(); // Initialize PeerJS here
             listenForIncomingCalls();
         } else {
-            console.warn("onSnapshot userRef: currentUser es nulo o indefinido. Esto no debería pasar si el usuario está autenticado.");
-            cleanUp(); // Algo salió mal, forzar cierre de sesión.
+            console.warn("onSnapshot userRef: currentUser is null or undefined. This should not happen if the user is authenticated.");
+            cleanUp(); // Something went wrong, force logout.
             showScreen(loginScreen);
         }
     }, (error) => {
-        console.error("Error en onSnapshot de currentUser:", error);
+        console.error("Error in onSnapshot of currentUser:", error);
         showMessage("Error al cargar tu perfil de usuario. Intenta recargar.", 'error', 5000);
         cleanUp();
         showScreen(loginScreen);
@@ -333,24 +298,25 @@ async function initializeAppData(uid) {
 
     const usersQuery = collection(db, 'users');
     usersUnsubscribe = onSnapshot(usersQuery, (snapshot) => {
-        console.log("onSnapshot usersQuery: Actualizando lista de todos los usuarios.");
+        console.log("onSnapshot usersQuery: Updating all users list.");
         const allUsers = [];
         snapshot.forEach(doc => allUsers.push(doc.data()));
         renderAllUsers(allUsers);
         renderFriends(allUsers);
     }, (error) => {
-        console.error("Error en onSnapshot de allUsers:", error);
+        console.error("Error in onSnapshot of allUsers:", error);
         showMessage("Error al cargar la lista de usuarios.", 'error', 5000);
     });
 }
 
 function renderAllUsers(users) {
     allUsersList.innerHTML = '';
-    users.forEach(user => {
-        // Asegúrate de que currentUser esté definido antes de usarlo
-        if (!currentUser || user.uid === currentUser.uid) return;
+    // Filter to only show online users, excluding the current user
+    const onlineUsers = users.filter(user => user.isOnline && user.uid !== currentUser.uid);
+
+    onlineUsers.forEach(user => {
         const isFriend = currentUser.friends.some(f => f.uid === user.uid);
-        const hasSentRequest = currentUser.friendRequests.some(req => req.uid === user.uid);
+        const hasSentRequest = (user.friendRequests || []).some(req => req.uid === currentUser.uid); // Check if *they* have sent a request to *me*
 
         const li = document.createElement('li');
         li.innerHTML = `
@@ -373,7 +339,7 @@ function renderAllUsers(users) {
 function renderFriends(allUsers) {
     friendsList.innerHTML = '';
     if (!currentUser) {
-        console.warn("renderFriends: currentUser es nulo, no se pueden renderizar amigos.");
+        console.warn("renderFriends: currentUser is null, cannot render friends.");
         return;
     }
     const myFriends = allUsers.filter(user => currentUser.friends.some(f => f.uid === user.uid));
@@ -430,10 +396,10 @@ async function sendFriendRequest(recipientUid) {
                 username: currentUser.username
             })
         });
-        showMessage('Solicitud de amistad enviada.', 'success');
+        showMessage('Friend request sent.', 'success');
     } catch (error) {
-        console.error("Error al enviar solicitud de amistad:", error);
-        showMessage("No se pudo enviar la solicitud de amistad.", 'error');
+        console.error("Error sending friend request:", error);
+        showMessage("Could not send friend request.", 'error');
     }
 }
 
@@ -450,10 +416,10 @@ async function acceptFriendRequest({uid, username}) {
         await updateDoc(friendRef, {
             friends: arrayUnion({ uid: currentUser.uid, username: currentUser.username })
         });
-        showMessage(`¡Ahora eres amigo de ${username}!`, 'success');
+        showMessage(`You are now friends with ${username}!`, 'success');
     } catch (error) {
-        console.error("Error al aceptar solicitud de amistad:", error);
-        showMessage("No se pudo aceptar la solicitud de amistad.", 'error');
+        console.error("Error accepting friend request:", error);
+        showMessage("Could not accept friend request.", 'error');
     }
 }
 
@@ -463,173 +429,195 @@ async function declineFriendRequest({uid, username}) {
         await updateDoc(userRef, {
             friendRequests: arrayRemove({ uid, username })
         });
-        showMessage(`Solicitud de ${username} rechazada.`, 'info');
+        showMessage(`Request from ${username} declined.`, 'info');
     } catch (error) {
-        console.error("Error al rechazar solicitud de amistad:", error);
-        showMessage("No se pudo rechazar la solicitud de amistad.", 'error');
+        console.error("Error declining friend request:", error);
+        showMessage("Could not decline friend request.", 'error');
     }
 }
 
 function initializePeerConnection() {
-    if (peer) {
-        // No destruir Peer si ya está inicializado.
-        // Solo destruir si se necesita una nueva conexión con un nuevo ID de usuario.
-        if (peer.id !== currentUser.uid) {
-            peer.destroy();
-            peer = null; // Establecer a null para permitir una nueva inicialización
-            console.log("PeerJS existente destruido porque el UID cambió.");
-        } else {
-            console.log("PeerJS ya inicializado para el UID actual. Reutilizando.");
-            // Si la conexión de datos ya está abierta, asegurarnos de que el chat esté maximizado
-            if (dataConnection && dataConnection.open) {
-                 p2pChatContainer.classList.remove('minimized');
-                 toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
-            }
-            return; // Salir si ya está inicializado y con el mismo UID
-        }
-    }
-    if (!currentUser) {
-        console.warn("initializePeerConnection: currentUser es nulo, no se puede inicializar PeerJS.");
+    if (!currentUser || !currentUser.uid) {
+        console.warn("initializePeerConnection: currentUser or currentUser.uid is null, cannot initialize PeerJS.");
         return;
     }
 
-    peer = new Peer(currentUser.uid);
-    console.log('PeerJS: Intentando conectar con ID:', currentUser.uid);
+    // If PeerJS is already initialized with the correct ID, just ensure data connection state.
+    if (peer && peer.id && peer.id.startsWith(currentUser.uid)) {
+        console.log("PeerJS already initialized for current UID. Reusing.");
+        if (dataConnection && dataConnection.open) {
+            p2pChatContainer.classList.remove('minimized');
+            toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+        }
+        return;
+    }
+
+    // Destroy existing peer connection if it's there but not properly set up
+    if (peer) {
+        peer.destroy();
+        peer = null;
+        console.log("Existing PeerJS destroyed to reinitialize.");
+    }
+
+    peerInitAttempts++;
+    if (peerInitAttempts > MAX_PEER_INIT_ATTEMPTS) {
+        console.error("Max PeerJS initialization attempts reached. Please check browser settings or reload.");
+        showMessage("Could not connect to video server. Please check your browser's ad-blocker or try reloading the page.", 'error', 10000);
+        return;
+    }
+
+    // Create a unique Peer ID by appending a random string to the UID
+    const peerId = currentUser.uid + '-' + Math.random().toString(36).substring(2, 8);
+    
+    peer = new Peer(peerId);
+    console.log(`PeerJS: Attempting to connect with ID: ${peerId} (Attempt ${peerInitAttempts})`);
 
     peer.on('open', id => {
-        console.log('PeerJS conectado con ID:', id);
+        console.log('PeerJS connected with ID:', id);
+        peerInitAttempts = 0; // Reset attempts on successful connection
     });
 
     peer.on('call', call => {
-        console.log("PeerJS: Llamada entrante detectada.", call);
+        console.log("PeerJS: Incoming call detected.", call);
         currentCall = call;
         showScreen(videoCallScreen);
 
-        // Intenta obtener el stream local ANTES de responder la llamada
+        // Try to get local stream BEFORE answering the call
         startLocalStream().then(streamStarted => {
             if (streamStarted) {
-                call.answer(localStream); // Responde la llamada con el stream local
-                console.log("PeerJS: Llamada respondida con stream local.");
+                call.answer(localStream); // Answer the call with the local stream
+                console.log("PeerJS: Call answered with local stream.");
             } else {
-                console.error("PeerJS: No se pudo iniciar el stream local para responder la llamada.");
-                showMessage("No se pudo responder la llamada: cámara/micrófono no disponibles.", 'error');
-                call.close(); // Cierra la llamada P2P si no se puede responder
-                endCall(); // Finalizar la llamada en la UI
+                console.error("PeerJS: Could not start local stream to answer the call.");
+                showMessage("Could not answer the call: camera/microphone not available.", 'error');
+                call.close(); // Close the P2P call if cannot answer
+                endCall(); // End the call in the UI
                 return;
             }
         });
 
         call.on('stream', remoteStream => { 
             remoteVideo.srcObject = remoteStream;
-            console.log("PeerJS: Stream remoto recibido.");
+            console.log("PeerJS: Remote stream received.");
         });
         call.on('close', () => {
-            console.log("PeerJS: Llamada de video cerrada.");
+            console.log("PeerJS: Video call closed.");
             endCall();
         });
         call.on('error', err => {
-            console.error("PeerJS: Error en la llamada entrante:", err);
-            showMessage(`Error durante la llamada entrante: ${err.message || err}`, 'error', 5000);
+            console.error("PeerJS: Error in incoming call:", err);
+            showMessage(`Error during incoming call: ${err.message || err}`, 'error', 5000);
             endCall();
         });
-        showMessage("Llamada en curso...", 'info');
+        showMessage("Call in progress...", 'info');
     });
 
-    // Manejar conexiones de datos entrantes para el chat
+    // Handle incoming data connections for chat
     peer.on('connection', (conn) => {
-        console.log("PeerJS: Conexión de datos entrante:", conn.peer);
-        // Cerrar cualquier conexión de datos anterior antes de establecer una nueva
+        console.log("PeerJS: Incoming data connection:", conn.peer);
+        // Close any previous data connection before establishing a new one
         if (dataConnection && dataConnection.open) {
             dataConnection.close();
-            console.log("DataConnection anterior cerrada para aceptar una nueva.");
+            console.log("Previous DataConnection closed to accept a new one.");
         }
         dataConnection = conn;
         setupDataConnectionListeners(dataConnection);
     });
 
     peer.on('error', err => {
-        console.error("Error de PeerJS:", err);
-        showMessage(`Error de conexión (PeerJS): ${err.message || err}`, 'error', 5000);
-        cleanUp(); // Forzar cleanUp si PeerJS falla.
-        showScreen(loginScreen);
+        console.error("PeerJS Error:", err);
+        // Specifically handle "ID taken" error (eW) or other connection issues
+        if (err.type === 'peer-unavailable' || err.type === 'disconnected' || err.type === 'network' || err.type === 'browser-incompatible' || err.type === 'unavailable' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'eW') {
+             console.warn(`PeerJS error of type ${err.type}. Retrying initialization...`);
+             showMessage(`Connection error (PeerJS): ${err.message || err}. Retrying...`, 'warning', 3000);
+             setTimeout(initializePeerConnection, 2000); // Retry after 2 seconds
+        } else {
+            showMessage(`Connection error (PeerJS): ${err.message || err}`, 'error', 5000);
+            cleanUp(); // Force cleanUp if a severe error occurs
+            showScreen(loginScreen);
+        }
     });
 }
 
 async function startLocalStream() {
     try {
-        // Detener cualquier stream local existente (cámara o pantalla)
+        // Stop any existing local stream (camera or screen)
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
-            console.log("Deteniendo stream local existente.");
+            console.log("Stopping existing local stream.");
         }
-        isSharingScreen = false; // Resetear estado de compartir pantalla
-        toggleScreenShareBtn.classList.remove('active-red'); // Desactivar el botón
+        isSharingScreen = false; // Reset screen sharing state
+
+        // Check if elements exist before attempting to modify them (important for hidden UI)
+        if (toggleScreenShareBtn) toggleScreenShareBtn.classList.remove('active-red'); // Deactivate the button
         
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideo.srcObject = localStream;
-        console.log("Stream local (cámara/micrófono) iniciado con éxito.");
+        if (localVideo) localVideo.srcObject = localStream;
+        console.log("Local stream (camera/microphone) started successfully.");
         return true;
     }
     catch (err) {
-        console.error("Error al obtener stream local (cámara/micrófono):", err);
-        showMessage("No se pudo acceder a la cámara o micrófono. Asegúrate de dar permisos y que no estén en uso por otra aplicación.", 'error', 5000);
+        console.error("Error getting local stream (camera/microphone):", err);
+        showMessage("Could not access camera or microphone. Make sure to grant permissions and that they are not in use by another application.", 'error', 5000);
         return false;
     }
 }
 
 async function startScreenShare() {
     try {
-        // Si ya estamos compartiendo pantalla, detenerla
+        // If already sharing screen, stop it
         if (isSharingScreen && localStream) {
             localStream.getTracks().forEach(track => track.stop());
-            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // Volver a la cámara
-            localVideo.srcObject = localStream;
-            currentCall.replaceTrack(
-                currentCall.localStream.getVideoTracks()[0],
-                localStream.getVideoTracks()[0],
-                currentCall.localStream
-            );
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // Go back to camera
+            if (localVideo) localVideo.srcObject = localStream;
+            if (currentCall && currentCall.localStream) { // Check if currentCall and localStream exist on the call object
+                currentCall.replaceTrack(
+                    currentCall.localStream.getVideoTracks()[0],
+                    localStream.getVideoTracks()[0],
+                    currentCall.localStream
+                );
+            }
             isSharingScreen = false;
-            toggleScreenShareBtn.classList.remove('active-red');
-            showMessage("Compartición de pantalla detenida. Volviendo a la cámara.", 'info');
+            if (toggleScreenShareBtn) toggleScreenShareBtn.classList.remove('active-red');
+            showMessage("Screen sharing stopped. Returning to camera.", 'info');
             return;
         }
 
-        // Si ya hay un stream de cámara activo, detenerlo antes de compartir pantalla
+        // If there is already an active camera stream, stop it before sharing screen
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
         }
 
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        localStream = screenStream; // Actualizar el stream local a la pantalla
-        localVideo.srcObject = localStream;
+        localStream = screenStream; // Update local stream to screen
+        if (localVideo) localVideo.srcObject = localStream;
 
-        // Si ya hay una llamada activa, reemplazar la pista de video
+        // If there is an active call, replace the video track
         if (currentCall && currentCall.localStream) {
             const videoTrack = currentCall.localStream.getVideoTracks()[0];
             const newVideoTrack = screenStream.getVideoTracks()[0];
             if (videoTrack && newVideoTrack) {
                 currentCall.replaceTrack(videoTrack, newVideoTrack, currentCall.localStream);
-                console.log("Pista de video reemplazada por stream de pantalla.");
+                console.log("Video track replaced by screen stream.");
             } else {
-                console.warn("No se pudo reemplazar la pista de video en la llamada activa.");
+                console.warn("Could not replace video track in active call.");
             }
         }
 
         isSharingScreen = true;
-        toggleScreenShareBtn.classList.add('active-red');
-        showMessage("Estás compartiendo tu pantalla.", 'success');
+        if (toggleScreenShareBtn) toggleScreenShareBtn.classList.add('active-red');
+        showMessage("You are sharing your screen.", 'success');
 
-        // Escuchar si el usuario detiene la compartición a través del navegador
+        // Listen if the user stops sharing via the browser
         localStream.getVideoTracks()[0].onended = () => {
-            console.log("Compartición de pantalla detenida por el usuario.");
-            startLocalStream(); // Volver a la cámara cuando la compartición finalice
+            console.log("Screen sharing stopped by the user.");
+            startLocalStream(); // Go back to camera when sharing ends
         };
 
     } catch (err) {
-        console.error("Error al iniciar la compartición de pantalla:", err);
-        showMessage("No se pudo compartir la pantalla. Asegúrate de dar permisos.", 'error', 5000);
-        // Si hay un error, intentar volver a la cámara si no estábamos compartiendo ya.
+        console.error("Error starting screen sharing:", err);
+        showMessage("Could not share screen. Make sure to grant permissions.", 'error', 5000);
+        // If there's an error, try to go back to camera if we weren't already sharing.
         if (!isSharingScreen) {
              startLocalStream();
         }
@@ -639,19 +627,19 @@ async function startScreenShare() {
 
 async function initiateCall(recipientUid, recipientUsername) {
     if (!currentUser) {
-        showMessage("No estás logueado para iniciar una llamada.", 'error');
+        showMessage("You are not logged in to initiate a call.", 'error');
         return;
     }
-    // Pre-chequeo para evitar llamar a uno mismo (aunque las reglas de Firestore ya lo evitan)
+    // Pre-check to avoid calling oneself (although Firestore rules already prevent this)
     if (recipientUid === currentUser.uid) {
-        showMessage("No puedes llamarte a ti mismo.", 'info');
+        showMessage("You cannot call yourself.", 'info');
         return;
     }
 
-    // Iniciar stream local (cámara/micrófono) antes de cualquier operación de llamada o Firestore
-    // Esto asegura que siempre haya un stream base, incluso si no se comparte pantalla inicialmente.
+    // Start local stream (camera/microphone) before any call or Firestore operations
+    // This ensures there's always a base stream, even if screen isn't shared initially.
     if (!await startLocalStream()) {
-        console.warn("No se pudo iniciar stream local para la llamada.");
+        console.warn("Could not start local stream for the call.");
         return;
     }
 
@@ -664,272 +652,287 @@ async function initiateCall(recipientUid, recipientUsername) {
             status: 'ringing',
             createdAt: serverTimestamp()
         });
-        console.log("Documento de llamada creado en Firestore:", callRef.id);
+        console.log("Call document created in Firestore:", callRef.id);
     } catch (firestoreError) {
-        console.error("Error al crear documento de llamada en Firestore:", firestoreError);
-        showMessage(`Error al iniciar la llamada: ${firestoreError.message}.`, 'error');
-        endCall(); // Asegurarse de limpiar si falla la creación de la llamada
+        console.error("Error creating call document in Firestore:", firestoreError);
+        showMessage(`Error starting call: ${firestoreError.message}.`, 'error');
+        endCall(); // Ensure cleanup if call creation fails
         return;
     }
 
-    // Iniciar la llamada de video PeerJS con el localStream actual
+    // Start PeerJS video call with the current localStream
     currentCall = peer.call(recipientUid, localStream);
     showScreen(videoCallScreen);
-    showMessage(`Llamando a ${recipientUsername}...`, 'info');
+    showMessage(`Calling ${recipientUsername}...`, 'info');
 
     currentCall.on('stream', remoteStream => { 
-        remoteVideo.srcObject = remoteStream; 
-        console.log("Stream remoto recibido durante llamada saliente.");
+        if (remoteVideo) remoteVideo.srcObject = remoteStream; 
+        console.log("Remote stream received during outgoing call.");
     });
     currentCall.on('close', () => {
-        console.log("Llamada saliente cerrada.");
+        console.log("Outgoing call closed.");
         endCall();
     });
     currentCall.on('error', err => {
-        console.error("Error en la llamada P2P (saliente):", err);
-        showMessage(`Error durante la llamada: ${err.message || err}`, 'error', 5000);
+        console.error("Error in P2P call (outgoing):", err);
+        showMessage(`Error during call: ${err.message || err}`, 'error', 5000);
         endCall();
     });
 
-    // Iniciar conexión de datos para el chat (si no está ya activa)
-    // Cerrar cualquier conexión de datos anterior si existiera y fuera diferente
+    // Start data connection for chat (if not already active)
+    // Close any previous data connection if it exists and is different
     if (dataConnection && dataConnection.peer !== recipientUid) {
         dataConnection.close();
         dataConnection = null;
-        console.log("DataConnection anterior cerrada al iniciar una nueva llamada.");
+        console.log("Previous DataConnection closed when initiating a new call.");
     }
-    // Establecer una nueva conexión de datos si no existe o si es para un nuevo destinatario
+    // Establish a new data connection if it doesn't exist or if it's for a new recipient
     if (!dataConnection || dataConnection.peer !== recipientUid || !dataConnection.open) {
         dataConnection = peer.connect(recipientUid);
         setupDataConnectionListeners(dataConnection);
-        console.log("PeerJS: Intentando conectar dataConnection con:", recipientUid);
+        console.log("PeerJS: Attempting to connect dataConnection with:", recipientUid);
     } else {
-        console.log("DataConnection ya existe y está abierta con el destinatario actual. Reutilizando.");
-        p2pChatContainer.classList.remove('minimized'); // Maximizar chat si ya hay conexión
+        console.log("DataConnection already exists and is open with the current recipient. Reusing.");
+        p2pChatContainer.classList.remove('minimized'); // Maximize chat if there's already a connection
         toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
     }
 }
 
 function listenForIncomingCalls() {
-    if (callsUnsubscribe) { callsUnsubscribe(); console.log("callsUnsubscribe (entrantes) desactivado."); }
+    if (callsUnsubscribe) { callsUnsubscribe(); console.log("callsUnsubscribe (incoming) deactivated."); }
     if (!currentUser) {
-        console.warn("listenForIncomingCalls: currentUser es nulo, no se puede escuchar llamadas entrantes.");
+        console.warn("listenForIncomingCalls: currentUser is null, cannot listen for incoming calls.");
         return;
     }
 
     const q = collection(db, "calls");
     const qFiltered = query(q, where("recipientId", "==", currentUser.uid), where("status", "==", "ringing"));
 
-    console.log("Escuchando llamadas entrantes para UID:", currentUser.uid);
+    console.log("Listening for incoming calls for UID:", currentUser.uid);
     callsUnsubscribe = onSnapshot(qFiltered, (snapshot) => {
         if (!snapshot.empty) {
             const callDoc = snapshot.docs[0];
             incomingCallData = { id: callDoc.id, ...callDoc.data() };
-            callerNameSpan.textContent = incomingCallData.callerName;
-            incomingCallModal.classList.add('active');
-            showMessage(`Llamada entrante de ${incomingCallData.callerName}!`, 'info', 4000);
-            console.log("Llamada entrante detectada:", incomingCallData.callerName);
+            if (callerNameSpan) callerNameSpan.textContent = incomingCallData.callerName;
+            if (incomingCallModal) incomingCallModal.classList.add('active');
+            showMessage(`Incoming call from ${incomingCallData.callerName}!`, 'info', 4000);
+            console.log("Incoming call detected:", incomingCallData.callerName);
         } else {
-            incomingCallModal.classList.remove('active');
-            // Solo limpiar incomingCallData si el modal estaba activo para evitar limpiar prematuramente
+            if (incomingCallModal) incomingCallModal.classList.remove('active');
+            // Only clear incomingCallData if the modal was active to avoid premature clearing
             if (incomingCallData) {
-                console.log("No hay llamadas entrantes activas, cerrando modal si estaba abierto.");
+                console.log("No active incoming calls, closing modal if it was open.");
                 incomingCallData = null;
             }
         }
     }, (error) => {
-        console.error("Error al escuchar llamadas entrantes:", error);
-        showMessage("Hubo un problema al detectar llamadas entrantes.", 'error', 5000);
-        // No forzar cierre de sesión aquí, solo es un problema de escucha.
+        console.error("Error listening for incoming calls:", error);
+        showMessage("There was a problem detecting incoming calls.", 'error', 5000);
+        // Do not force logout here, it's just a listening issue.
     });
 }
 
-acceptCallBtn.addEventListener('click', async () => {
-    if (!incomingCallData) {
-        console.warn("acceptCallBtn: No hay datos de llamada entrante para aceptar.");
-        return;
-    }
-    if (!await startLocalStream()) {
-        console.warn("No se pudo iniciar stream local para aceptar la llamada.");
-        if (incomingCallData) {
-            const callRef = doc(db, 'calls', incomingCallData.id);
-            try {
-                await updateDoc(callRef, { status: 'failed_accept' });
-                console.log("Estado de llamada actualizado a 'failed_accept' por fallo de stream.");
-            } catch (updateErr) {
-                console.error("Error al actualizar estado de llamada a failed_accept:", updateErr);
-            }
-            incomingCallData = null;
+if (acceptCallBtn) {
+    acceptCallBtn.addEventListener('click', async () => {
+        if (!incomingCallData) {
+            console.warn("acceptCallBtn: No incoming call data to accept.");
+            return;
         }
-        incomingCallModal.classList.remove('active');
-        return;
-    }
+        if (!await startLocalStream()) {
+            console.warn("Could not start local stream to accept the call.");
+            if (incomingCallData) {
+                const callRef = doc(db, 'calls', incomingCallData.id);
+                try {
+                    await updateDoc(callRef, { status: 'failed_accept' });
+                    console.log("Call status updated to 'failed_accept' due to stream failure.");
+                } catch (updateErr) {
+                    console.error("Error updating call status to failed_accept:", updateErr);
+                }
+                incomingCallData = null;
+            }
+            if (incomingCallModal) incomingCallModal.classList.remove('active');
+            return;
+        }
 
-    incomingCallModal.classList.remove('active');
-    const callRef = doc(db, 'calls', incomingCallData.id);
-    try {
-        await updateDoc(callRef, { status: 'answered' });
-        console.log("Estado de llamada actualizado a 'answered'.");
-    } catch (error) {
-        console.error("Error al actualizar estado de llamada a 'answered':", error);
-        showMessage("Error al aceptar la llamada en la base de datos.", 'error');
-    }
-    showMessage("Llamada aceptada.", 'success');
-    // La lógica de PeerJS para responder la llamada ya se maneja en peer.on('call')
-    // No necesitamos llamar a peer.call() aquí, ya que la llamada ya fue iniciada por el llamante
-    // y nuestro peer.on('call') la está respondiendo.
+        if (incomingCallModal) incomingCallModal.classList.remove('active');
+        const callRef = doc(db, 'calls', incomingCallData.id);
+        try {
+            await updateDoc(callRef, { status: 'answered' });
+            console.log("Call status updated to 'answered'.");
+        } catch (error) {
+            console.error("Error updating call status to 'answered':", error);
+            showMessage("Error accepting the call in the database.", 'error');
+        }
+        showMessage("Call accepted.", 'success');
+        // The PeerJS logic to answer the call is already handled in peer.on('call')
+        // We don't need to call peer.call() here, as the call was already initiated by the caller
+        // and our peer.on('call') is answering it.
 
-    // Intentar establecer la conexión de datos para el chat con el caller
-    if (!dataConnection || dataConnection.peer !== incomingCallData.callerId || !dataConnection.open) {
-        dataConnection = peer.connect(incomingCallData.callerId);
-        setupDataConnectionListeners(dataConnection);
-        console.log("PeerJS: Intentando conectar dataConnection con el llamante:", incomingCallData.callerId);
-    } else {
-        console.log("DataConnection ya existe y está abierta con el llamante. Reutilizando.");
-        p2pChatContainer.classList.remove('minimized'); // Maximizar chat si ya hay conexión
-        toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
-    }
-});
+        // Attempt to establish data connection for chat with the caller
+        if (!dataConnection || dataConnection.peer !== incomingCallData.callerId || !dataConnection.open) {
+            dataConnection = peer.connect(incomingCallData.callerId);
+            setupDataConnectionListeners(dataConnection);
+            console.log("PeerJS: Attempting to connect dataConnection with caller:", incomingCallData.callerId);
+        } else {
+            console.log("DataConnection already exists and is open with the caller. Reusing.");
+            if (p2pChatContainer) p2pChatContainer.classList.remove('minimized'); // Maximize chat if already connected
+            if (toggleChatBtn) toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+        }
+    });
+}
 
-declineCallBtn.addEventListener('click', async () => {
-    if (!incomingCallData) {
-        console.warn("declineCallBtn: No hay datos de llamada entrante para rechazar.");
-        return;
-    }
-    incomingCallModal.classList.remove('active');
-    const callRef = doc(db, 'calls', incomingCallData.id);
-    try {
-        await updateDoc(callRef, { status: 'declined' });
-        console.log("Estado de llamada actualizado a 'declined'.");
-    } catch (error) {
-        console.error("Error al actualizar estado de llamada a 'declined':", error);
-        showMessage("No se pudo rechazar la llamada en la base de datos.", 'error');
-    }
-    incomingCallData = null;
-    showMessage("Llamada rechazada.", 'info');
-});
+
+if (declineCallBtn) {
+    declineCallBtn.addEventListener('click', async () => {
+        if (!incomingCallData) {
+            console.warn("declineCallBtn: No incoming call data to decline.");
+            return;
+        }
+        if (incomingCallModal) incomingCallModal.classList.remove('active');
+        const callRef = doc(db, 'calls', incomingCallData.id);
+        try {
+            await updateDoc(callRef, { status: 'declined' });
+            console.log("Call status updated to 'declined'.");
+        } catch (error) {
+            console.error("Error updating call status to 'declined':", error);
+            showMessage("Could not decline the call in the database.", 'error');
+        }
+        incomingCallData = null;
+        showMessage("Call declined.", 'info');
+    });
+}
 
 async function endCall() {
     if (currentCall) {
         currentCall.close();
-        console.log("currentCall cerrado.");
+        console.log("currentCall closed.");
     }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
-        console.log("localStream detenido.");
+        console.log("localStream stopped.");
     }
     if (dataConnection) {
         dataConnection.close();
         dataConnection = null;
-        console.log("PeerJS DataConnection cerrada.");
+        console.log("PeerJS DataConnection closed.");
     }
 
-    remoteVideo.srcObject = null;
-    localVideo.srcObject = null;
+    if (remoteVideo) remoteVideo.srcObject = null;
+    if (localVideo) localVideo.srcObject = null;
     currentCall = null;
-    incomingCallData = null; // Limpiar datos de la llamada entrante
-    isSharingScreen = false; // Resetear estado de compartir pantalla
-    toggleScreenShareBtn.classList.remove('active-red'); // Desactivar el botón
+    incomingCallData = null; // Clear incoming call data
+    isSharingScreen = false; // Reset screen sharing state
+    if (toggleScreenShareBtn) toggleScreenShareBtn.classList.remove('active-red'); // Deactivate the button
 
-    chatMessagesContainer.innerHTML = ''; // Limpiar mensajes del chat
-    p2pChatContainer.classList.add('minimized'); // Minimizar chat
-    toggleChatBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; // Reset chat toggle icon to up
+    if (chatMessagesContainer) chatMessagesContainer.innerHTML = ''; // Clear chat messages
+    if (p2pChatContainer) p2pChatContainer.classList.add('minimized'); // Minimize chat
+    if (toggleChatBtn) toggleChatBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; // Reset chat toggle icon to up
     
     showScreen(mainScreen);
-    showMessage("Llamada finalizada.", 'info');
-    console.log("Función endCall completada.");
+    showMessage("Call ended.", 'info');
+    console.log("endCall function completed.");
 }
 
-endCallBtn.addEventListener('click', endCall);
+if (endCallBtn) endCallBtn.addEventListener('click', endCall);
 
-toggleMicBtn.addEventListener('click', () => {
-    if (!localStream) {
-        console.warn("toggleMicBtn: localStream no disponible.");
-        return;
-    }
-    const audioTrack = localStream.getAudioTracks()[0];
-    if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        toggleMicBtn.innerHTML = audioTrack.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
-        toggleMicBtn.classList.toggle('active-red', !audioTrack.enabled);
-        showMessage(`Micrófono ${audioTrack.enabled ? 'activado' : 'silenciado'}.`, 'info');
-        console.log(`Micrófono: ${audioTrack.enabled ? 'activado' : 'silenciado'}.`);
-    } else {
-        console.warn("toggleMicBtn: No se encontró la pista de audio.");
-    }
-});
+if (toggleMicBtn) {
+    toggleMicBtn.addEventListener('click', () => {
+        if (!localStream) {
+            console.warn("toggleMicBtn: localStream not available.");
+            return;
+        }
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = !audioTrack.enabled;
+            toggleMicBtn.innerHTML = audioTrack.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+            toggleMicBtn.classList.toggle('active-red', !audioTrack.enabled);
+            showMessage(`Microphone ${audioTrack.enabled ? 'activated' : 'muted'}.`, 'info');
+            console.log(`Microphone: ${audioTrack.enabled ? 'activated' : 'muted'}.`);
+        } else {
+            console.warn("toggleMicBtn: Audio track not found.");
+        }
+    });
+}
 
-toggleCameraBtn.addEventListener('click', () => {
-    if (!localStream) {
-        console.warn("toggleCameraBtn: localStream no disponible.");
-        return;
-    }
-    const videoTrack = localStream.getVideoTracks()[0];
-    if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        toggleCameraBtn.innerHTML = videoTrack.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
-        toggleCameraBtn.classList.toggle('active-red', !videoTrack.enabled);
-        showMessage(`Cámara ${videoTrack.enabled ? 'activada' : 'desactivada'}.`, 'info');
-        console.log(`Cámara: ${videoTrack.enabled ? 'activada' : 'desactivada'}.`);
-    } else {
-        console.warn("toggleCameraBtn: No se encontró la pista de video.");
-    }
-});
+if (toggleCameraBtn) {
+    toggleCameraBtn.addEventListener('click', () => {
+        if (!localStream) {
+            console.warn("toggleCameraBtn: localStream not available.");
+            return;
+        }
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack) {
+            videoTrack.enabled = !videoTrack.enabled;
+            toggleCameraBtn.innerHTML = videoTrack.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+            toggleCameraBtn.classList.toggle('active-red', !videoTrack.enabled);
+            showMessage(`Camera ${videoTrack.enabled ? 'activated' : 'deactivated'}.`, 'info');
+            console.log(`Camera: ${videoTrack.enabled ? 'activated' : 'deactivated'}.`);
+        } else {
+            console.warn("toggleCameraBtn: Video track not found.");
+        }
+    });
+}
 
-// Listener para el nuevo botón de compartir pantalla
-toggleScreenShareBtn.addEventListener('click', startScreenShare);
+// Listener for the new screen share button
+if (toggleScreenShareBtn) toggleScreenShareBtn.addEventListener('click', startScreenShare);
 
 
-// --- LÓGICA DE CHAT P2P ---
+// --- P2P CHAT LOGIC ---
 
 function setupDataConnectionListeners(conn) {
     conn.on('open', () => {
-        console.log("DataConnection abierta con:", conn.peer);
-        showMessage("Chat conectado.", 'success', 2000);
-        // Asegúrate de que el chat esté maximizado cuando la conexión se abre
-        p2pChatContainer.classList.remove('minimized'); 
-        toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>'; // Icono para minimizar
+        console.log("DataConnection opened with:", conn.peer);
+        showMessage("Chat connected.", 'success', 2000);
+        // Ensure chat is maximized when connection opens
+        if (p2pChatContainer) p2pChatContainer.classList.remove('minimized'); 
+        if (toggleChatBtn) toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>'; // Icon to minimize
     });
 
     conn.on('data', (data) => {
-        console.log("Mensaje de chat recibido:", data);
+        console.log("Chat message received:", data);
         addChatMessage(data, 'other');
     });
 
     conn.on('close', () => {
-        console.log("DataConnection cerrada.");
-        showMessage("Chat desconectado.", 'info', 2000);
-        chatMessagesContainer.innerHTML = ''; // Limpiar chat al desconectar
-        p2pChatContainer.classList.add('minimized'); // Minimizar chat
-        toggleChatBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; // Icono para maximizar
+        console.log("DataConnection closed.");
+        showMessage("Chat disconnected.", 'info', 2000);
+        if (chatMessagesContainer) chatMessagesContainer.innerHTML = ''; // Clear chat on disconnect
+        if (p2pChatContainer) p2pChatContainer.classList.add('minimized'); // Minimize chat
+        if (toggleChatBtn) toggleChatBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; // Icon to maximize
     });
 
     conn.on('error', (err) => {
-        console.error("Error en DataConnection:", err);
-        showMessage(`Error en el chat: ${err.message || err}`, 'error', 5000);
+        console.error("Error in DataConnection:", err);
+        showMessage(`Chat error: ${err.message || err}`, 'error', 5000);
     });
 }
 
-sendChatMessageBtn.addEventListener('click', sendMessage);
-chatMessageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        sendMessage();
-    }
-});
+if (sendChatMessageBtn) sendChatMessageBtn.addEventListener('click', sendMessage);
+if (chatMessageInput) {
+    chatMessageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+}
 
 function sendMessage() {
     const message = chatMessageInput.value.trim();
     if (message.length > 0 && dataConnection && dataConnection.open) {
         dataConnection.send(message);
         addChatMessage(message, 'self');
-        chatMessageInput.value = ''; // Limpiar el input
-        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight; // Scroll al final
+        if (chatMessageInput) chatMessageInput.value = ''; // Clear input
+        if (chatMessagesContainer) chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight; // Scroll to bottom
     } else if (!dataConnection || !dataConnection.open) {
-        showMessage("No hay conexión de chat activa.", 'error', 2000);
+        showMessage("No active chat connection.", 'error', 2000);
     }
 }
 
 function addChatMessage(message, type) {
+    if (!chatMessagesContainer) {
+        console.warn("addChatMessage: chatMessagesContainer is null.");
+        return;
+    }
     const messageElement = document.createElement('div');
     messageElement.classList.add('chat-message', type);
 
@@ -963,16 +966,20 @@ function addChatMessage(message, type) {
 }
 
 // Toggle chat minimization
-toggleChatBtn.addEventListener('click', () => {
-    p2pChatContainer.classList.toggle('minimized');
-    // Change icon based on state
-    if (p2pChatContainer.classList.contains('minimized')) {
-        toggleChatBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; // Icono para maximizar
-    } else {
-        toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>'; // Icono para minimizar
-    }
-    // Asegurar que el scroll se resetee al final si se maximiza
-    if (!p2pChatContainer.classList.contains('minimized')) {
-        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-    }
-});
+if (toggleChatBtn) {
+    toggleChatBtn.addEventListener('click', () => {
+        if (p2pChatContainer) {
+            p2pChatContainer.classList.toggle('minimized');
+            // Change icon based on state
+            if (p2pChatContainer.classList.contains('minimized')) {
+                toggleChatBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; // Icon to maximize
+            } else {
+                toggleChatBtn.innerHTML = '<i class="fas fa-chevron-down"></i>'; // Icon to minimize
+            }
+            // Ensure scroll is reset to the bottom if maximized
+            if (!p2pChatContainer.classList.contains('minimized')) {
+                if (chatMessagesContainer) chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            }
+        }
+    });
+}

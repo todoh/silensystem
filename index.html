@@ -3,36 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Chat</title>
-    <!-- Font Awesome para iconos -->
+    <title>Silenos Conexión</title>
+    <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Estilos personalizados -->
+    <!-- Custom styles -->
     <link rel="stylesheet" href="style3.css">
     
     <!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js" type="module"></script>
-<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js" type="module"></script>
-<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js" type="module"></script>
+    <!-- Removed type="module" as these are generally loaded as regular scripts for global access -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js"></script>
     
-    <!-- PeerJS para conexión P2P -->
+    <!-- PeerJS for P2P connection -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
     <div id="app-container">
-        <!-- Pantalla de Login -->
+        <!-- Login Screen -->
         <div id="login-screen" class="screen active">
             <div class="login-box">
                 <h1>Silenos Conexión</h1>
-                <p>Ingrese su nombre para conectar</p>
-                <!-- Campo de entrada para el nombre de usuario -->
-                <input type="text" id="username-input" placeholder="Tu nombre de usuario" maxlength="20">
-                <!-- Botón de entrada, deshabilitado por defecto -->
-                <button id="login-btn" disabled>Entrar</button>
+                <p>Inicia sesión con Google para conectar</p>
+                <!-- Google Sign-In Button -->
+                <button id="google-login-btn" class="google-btn">
+                    <i class="fab fa-google"></i> Iniciar sesión con Google
+                </button>
             </div>
         </div>
 
-        <!-- Pantalla Principal (Lobby) -->
+        <!-- Main Screen (Lobby) -->
         <div id="main-screen" class="screen">
              <header>
                 <h2>Bienvenido, <span id="current-username"></span></h2>
@@ -56,10 +57,10 @@
             </div>
         </div>
 
-        <!-- Pantalla de Videollamada -->
+        <!-- Video Call Screen -->
         <div id="video-call-screen" class="screen">
             <div class="video-grid">
-                <div class="video-wrapper video-wrapper-remote"> <!-- Clase añadida para el video remoto -->
+                <div class="video-wrapper video-wrapper-remote"> <!-- Class added for remote video -->
                     <video id="remote-video" autoplay></video>
                     <div class="user-tag">Remoto</div>
                 </div>
@@ -71,18 +72,18 @@
             <div class="call-controls">
                 <button id="toggle-mic-btn" class="control-btn"><i class="fas fa-microphone"></i></button>
                 <button id="toggle-camera-btn" class="control-btn"><i class="fas fa-video"></i></button>
-                <button id="toggle-screen-share-btn" class="control-btn"><i class="fas fa-desktop"></i></button> <!-- Nuevo botón para compartir pantalla -->
+                <button id="toggle-screen-share-btn" class="control-btn"><i class="fas fa-desktop"></i></button> <!-- New button for screen sharing -->
                 <button id="end-call-btn" class="control-btn end-call"><i class="fas fa-phone-slash"></i></button>
             </div>
 
-            <!-- Contenedor del Chat P2P -->
+            <!-- P2P Chat Container -->
             <div id="p2p-chat-container" class="p2p-chat-container minimized">
                 <div class="chat-header">
                     <h4>Chat de la Llamada</h4>
                     <button id="toggle-chat-btn" class="control-btn chat-toggle-btn"><i class="fas fa-chevron-down"></i></button>
                 </div>
                 <div class="chat-messages" id="chat-messages">
-                    <!-- Los mensajes del chat se insertarán aquí -->
+                    <!-- Chat messages will be inserted here -->
                 </div>
                 <div class="chat-input-area">
                     <input type="text" id="chat-message-input" placeholder="Escribe un mensaje...">
@@ -94,7 +95,7 @@
         </div>
     </div>
     
-    <!-- Modal de Llamada Entrante -->
+    <!-- Incoming Call Modal -->
     <div id="incoming-call-modal" class="modal-container">
         <div class="modal-content">
             <p><span id="caller-name"></span> te está llamando...</p>
@@ -105,7 +106,7 @@
         </div>
     </div>
 
-    <!-- Tu archivo JavaScript principal -->
-    <script src="app.js" type="module"></script>
+    <!-- Your main JavaScript file -->
+    <script type="module" src="app.js"></script>
 </body>
 </html>
