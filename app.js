@@ -64,6 +64,7 @@ let userUnsubscribe = null;
 let usersUnsubscribe = null;
 let callsUnsubscribe = null;
 let dataChannel = null; // PeerJS DataChannel for chat
+let statusUpdateInterval = null; // Variable para almacenar el ID del intervalo de actualización de estado
 
 // --- SCREEN MANAGEMENT FUNCTIONS ---
 function showScreen(screen) {
@@ -137,11 +138,38 @@ onAuthStateChanged(auth, async (user) => {
        
         initializeAppData(user.uid);
         showScreen(mainScreen);
+
+        // Iniciar el intervalo de actualización de estado si no está ya activo
+        if (!statusUpdateInterval) {
+            statusUpdateInterval = setInterval(updateUserStatus, 40000); // Actualiza cada 40 segundos
+        }
+
     } else {
+        // Al cerrar sesión o no estar autenticado, limpiar el intervalo
+        if (statusUpdateInterval) {
+            clearInterval(statusUpdateInterval);
+            statusUpdateInterval = null;
+        }
         cleanUp();
         showScreen(loginScreen);
     }
 });
+
+// Función para actualizar el estado del usuario en Firestore (heartbeat)
+async function updateUserStatus() {
+    if (currentUser && currentUser.uid) {
+        const userRef = doc(db, 'users', currentUser.uid);
+        try {
+            await updateDoc(userRef, {
+                isOnline: true,
+                lastSeen: serverTimestamp()
+            });
+            console.log('User status updated:', currentUser.username);
+        } catch (error) {
+            console.error('Error updating user status:', error);
+        }
+    }
+}
 
 function cleanUp() {
     if (userUnsubscribe) userUnsubscribe();
@@ -154,6 +182,12 @@ function cleanUp() {
     }
     if (dataChannel) dataChannel.close();
     
+    // Clear the status update interval on cleanup
+    if (statusUpdateInterval) {
+        clearInterval(statusUpdateInterval);
+        statusUpdateInterval = null;
+    }
+
     currentUser = null;
     peer = null;
     localStream = null;
@@ -185,11 +219,29 @@ async function initializeAppData(uid) {
     });
 
     const usersQuery = collection(db, 'users');
-    usersUnsubscribe = onSnapshot(usersQuery, (snapshot) => {
+    usersUnsubscribe = onSnapshot(usersQuery, async (snapshot) => {
         const allUsers = [];
-        snapshot.forEach(doc => allUsers.push(doc.data()));
+        const now = Date.now();
+        const OFFLINE_THRESHOLD_MS = 50 * 1000; // 50 segundos
+
+        snapshot.forEach(doc => {
+            const userData = doc.data();
+            // Si el usuario tiene lastSeen y ha pasado el umbral, marcar como offline si estaba online
+            if (userData.lastSeen && userData.isOnline) {
+                const lastSeenTime = userData.lastSeen.toDate().getTime(); // Convertir Timestamp a milisegundos
+                if (now - lastSeenTime > OFFLINE_THRESHOLD_MS) {
+                    // Actualizar el estado a offline en Firestore
+                    updateDoc(doc.ref, { isOnline: false })
+                        .catch(error => console.error("Error updating user to offline:", error));
+                    // No añadir a allUsers en esta iteración si lo vamos a marcar como offline
+                    return; 
+                }
+            }
+            allUsers.push(userData);
+        });
         
         // Filtrar para mostrar SOLO usuarios online en "Usuarios en la Red"
+        // Esta lista ya se filtra después de que el onSnapshot actualiza los estados en Firestore
         const onlineUsersForList = allUsers.filter(user => user.isOnline && user.uid !== currentUser.uid);
         renderAllUsers(onlineUsersForList);
 
@@ -325,7 +377,7 @@ function initializePeerConnection() {
         setupDataChannel(call); // Setup data channel for incoming call
     });
     
-    peer.on('error', err => console.error("PeerJS Error:", err));
+    peer.on('error', err => console.error("PeerJS Error:", err);
 }
 
 async function startLocalStream() {
