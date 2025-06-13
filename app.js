@@ -227,21 +227,21 @@ async function initializeAppData(uid) {
         snapshot.forEach(doc => {
             const userData = doc.data();
             // Si el usuario tiene lastSeen y ha pasado el umbral, marcar como offline si estaba online
+            // NOTA IMPORTANTE: Hemos eliminado la escritura a Firestore aquí para evitar conflictos.
+            // La actualización a isOnline: false para usuarios inactivos debe gestionarse
+            // por su propio cliente (si se desconecta) o por reglas de seguridad/funciones de servidor.
             if (userData.lastSeen && userData.isOnline) {
                 const lastSeenTime = userData.lastSeen.toDate().getTime(); // Convertir Timestamp a milisegundos
                 if (now - lastSeenTime > OFFLINE_THRESHOLD_MS) {
-                    // Actualizar el estado a offline en Firestore
-                    updateDoc(doc.ref, { isOnline: false })
-                        .catch(error => console.error("Error updating user to offline:", error));
-                    // No añadir a allUsers en esta iteración si lo vamos a marcar como offline
-                    return; 
+                    // Si el usuario está por encima del umbral de offline, lo consideramos offline para esta interfaz
+                    // NO actualizamos el documento del otro usuario desde aquí.
+                    userData.isOnline = false; // Solo actualizamos la copia local para renderizado
                 }
             }
             allUsers.push(userData);
         });
         
         // Filtrar para mostrar SOLO usuarios online en "Usuarios en la Red"
-        // Esta lista ya se filtra después de que el onSnapshot actualiza los estados en Firestore
         const onlineUsersForList = allUsers.filter(user => user.isOnline && user.uid !== currentUser.uid);
         renderAllUsers(onlineUsersForList);
 
@@ -305,15 +305,14 @@ function renderFriends(allUsers) {
                     <span>${friend.username}</span>
                 </div>
                 <div class="user-actions">
-                    <!-- Opcional: mostrar un botón de llamada deshabilitado si se quiere la visualización -->
-                    <!-- <button class="btn-call disabled-call" disabled><i class="fas fa-phone"></i></button> -->
+                    <!-- Ya no se renderiza un botón deshabilitado aquí, simplemente no hay botón -->
                 </div>
             `;
             friendsList.appendChild(li);
         }
     });
     
-    // Adjuntar escuchadores de eventos solo a los botones que existen y no están deshabilitados (porque ya se filtran al no renderizarlos)
+    // Adjuntar escuchadores de eventos solo a los botones que existen (los que están online)
     friendsList.querySelectorAll('.btn-call').forEach(button => {
         button.addEventListener('click', (e) => initiateCall(e.currentTarget.dataset.uid));
     });
