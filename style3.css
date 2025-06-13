@@ -47,6 +47,7 @@ body {
     text-align: center;
     width: 80%;
     max-width: 400px;
+    padding: 20px; /* Añadido para un poco de espacio interior */
 }
 
 .login-box h1 {
@@ -63,40 +64,64 @@ body {
     margin-bottom: 40px;
 }
 
+/* Estilo para el campo de entrada de nombre de usuario */
 #username-input {
-    width: 100%;
+    width: calc(100% - 20px); /* Ajuste para el padding */
     background: transparent;
     border: none;
-    border-bottom: 1px solid #555;
+    border-bottom: 2px solid #555; /* Borde más visible */
     color: #fff;
     font-size: 1.5em;
-    padding: 10px 0;
+    padding: 10px;
     margin-bottom: 30px;
     text-align: center;
     outline: none;
-    transition: border-color 0.3s;
+    transition: border-color 0.3s, box-shadow 0.3s; /* Añadido box-shadow para enfoque */
+    border-radius: 5px; /* Bordes ligeramente redondeados */
 }
 
 #username-input:focus {
-    border-bottom-color: #fff;
+    border-bottom-color: #007bff; /* Color al enfocar */
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.2); /* Sutil sombra al enfocar */
 }
 
+/* Estilo para el botón de entrada */
 #login-btn {
     padding: 12px 30px;
-    border: 1px solid #fff;
+    border: 1px solid #007bff; /* Borde azul */
     border-radius: 50px;
-    background: transparent;
+    background: #007bff; /* Fondo azul */
     color: white;
-    font-size: 1em;
+    font-size: 1.1em; /* Fuente un poco más grande */
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.3s, color 0.3s;
+    transition: background-color 0.3s, border-color 0.3s, opacity 0.3s, transform 0.2s; /* Transiciones adicionales */
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4); /* Sombra para efecto 3D */
+    opacity: 1; /* Por defecto, la opacidad es 1 para el estado activo */
 }
 
-#login-btn:hover {
-    background-color: #fff;
-    color: #000;
+/* Estado del botón cuando está deshabilitado */
+#login-btn:disabled {
+    opacity: 0.3; /* Opacidad reducida cuando está deshabilitado */
+    cursor: not-allowed;
+    background-color: #555; /* Fondo gris para deshabilitado */
+    border-color: #555;
+    box-shadow: none;
+    pointer-events: none; /* Deshabilita los eventos del ratón cuando está deshabilitado */
 }
+
+#login-btn:hover:not(:disabled) {
+    background-color: #0056b3; /* Azul más oscuro al pasar el ratón */
+    border-color: #0056b3;
+    transform: translateY(-2px); /* Pequeño levantamiento */
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.6);
+}
+
+#login-btn:active:not(:disabled) {
+    transform: translateY(0); /* Vuelve a la posición normal al hacer clic */
+    box-shadow: 0 2px 5px rgba(0, 123, 255, 0.3);
+}
+
 
 /* Pantalla Principal (Lobby) Minimalista */
 #main-screen {
@@ -237,31 +262,45 @@ ul li:hover {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    position: relative; /* Asegura que sea un contexto de posicionamiento para los hijos absolutos */
 }
 
 .video-grid {
     width: 100%;
     height: 100%;
-    position: relative;
+    position: relative; /* Este es el contenedor principal para los videos */
+    display: flex; /* Usar flexbox para que el video remoto ocupe todo el espacio */
+    justify-content: center;
+    align-items: center;
 }
 
 .video-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
+    /* Estilos base para todos los contenedores de video */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #1a1a1a; /* Fondo de placeholder */
+    overflow: hidden;
+    position: relative; /* Para el user-tag */
+}
+
+.video-wrapper-remote { /* Clase específica para el video remoto */
     width: 100%;
     height: 100%;
+    flex-grow: 1; /* Hace que ocupe todo el espacio disponible */
 }
 
 .video-wrapper.local {
+    position: absolute; /* Posicionarlo como un overlay */
     width: 20%;
-    max-width: 220px;
-    height: auto;
+    max-width: 220px; /* Ancho máximo para el video local */
+    height: auto; /* Dejar que la altura se ajuste a la relación de aspecto */
+    aspect-ratio: 16/9; /* Mantener la relación de aspecto */
     bottom: 20px;
     right: 20px;
     top: auto;
     left: auto;
-    z-index: 10;
+    z-index: 10; /* Asegura que esté por encima del video remoto */
     border: 2px solid rgba(255,255,255,0.2);
     border-radius: 8px;
     overflow: hidden;
@@ -270,7 +309,7 @@ ul li:hover {
 video {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: cover; /* Asegura que el video llene el contenedor sin distorsión */
     background-color: #000;
 }
 
@@ -328,6 +367,161 @@ video {
     background-color: #c0392b;
 }
 
+/* Estilos del Chat P2P */
+.p2p-chat-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 300px; /* Ancho fijo para el chat */
+    height: 400px; /* Altura inicial del chat */
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease-in-out;
+    z-index: 30; /* Aumentado el z-index para que esté por encima de todo */
+}
+
+.p2p-chat-container.minimized {
+    height: 50px; /* Altura cuando está minimizado (solo el header) */
+    width: 250px; /* Ancho un poco más pequeño cuando está minimizado */
+    bottom: 20px; /* Posición cuando está minimizado */
+    left: 20px; /* Posición cuando está minimizado */
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border-bottom: 1px solid #333;
+    cursor: pointer; /* Para indicar que es cliqueable para minimizar/maximizar */
+    user-select: none;
+}
+
+.chat-header h4 {
+    margin: 0;
+    font-size: 1em;
+    color: #fff;
+    font-weight: 500;
+}
+
+.chat-header .chat-toggle-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.p2p-chat-container.minimized .chat-toggle-btn {
+    transform: rotate(180deg); /* Gira la flecha hacia arriba cuando está minimizado */
+}
+
+.chat-messages {
+    flex-grow: 1;
+    padding: 10px 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Espacio entre mensajes */
+    scroll-behavior: smooth;
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.chat-messages::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera*/
+}
+
+.p2p-chat-container.minimized .chat-messages,
+.p2p-chat-container.minimized .chat-input-area {
+    display: none; /* Oculta el contenido cuando está minimizado */
+}
+
+.chat-message {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    border-radius: 15px;
+    max-width: 85%;
+    word-wrap: break-word;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.chat-message.self {
+    align-self: flex-end;
+    background-color: #007bff; /* Azul para mensajes propios */
+    border-bottom-right-radius: 5px;
+}
+
+.chat-message.other {
+    align-self: flex-start;
+    background-color: #333; /* Gris oscuro para mensajes de otros */
+    border-bottom-left-radius: 5px;
+}
+
+.chat-message a {
+    color: #87ceeb; /* Un azul claro para enlaces */
+    text-decoration: underline;
+}
+
+.chat-message img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+.chat-input-area {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #333;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+#chat-message-input {
+    flex-grow: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 20px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    outline: none;
+    font-size: 1em;
+}
+
+#chat-message-input::placeholder {
+    color: #bbb;
+}
+
+#send-chat-message-btn {
+    background-color: #007bff;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    margin-left: 10px;
+    cursor: pointer;
+    color: white;
+    font-size: 1.1em;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.3s;
+}
+
+#send-chat-message-btn:hover {
+    background-color: #0056b3;
+}
 
 /* Modal de llamada entrante */
 .modal-container {
