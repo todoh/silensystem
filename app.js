@@ -285,19 +285,26 @@ function renderFriends(allUsers) {
     
     myFriends.forEach(friend => {
         const li = document.createElement('li');
+        // Determina si el botón de llamada debe ser clickeable y su estilo
+        const isFriendOnline = friend.isOnline;
+        const callButtonClass = isFriendOnline ? 'btn-call' : 'btn-call disabled-call';
+        // El botón siempre se renderiza, pero puede estar deshabilitado
+        const callButtonHtml = `<button class="${callButtonClass}" data-uid="${friend.uid}" ${isFriendOnline ? '' : 'disabled'}><i class="fas fa-phone"></i></button>`;
+
         li.innerHTML = `
              <div>
                 <span class="status-indicator ${friend.isOnline ? 'online' : 'offline'}"></span>
                 <span>${friend.username}</span>
             </div>
             <div class="user-actions">
-                ${friend.isOnline ? `<button class="btn-call" data-uid="${friend.uid}"><i class="fas fa-phone"></i></button>` : ''}
+                ${callButtonHtml}
             </div>
         `;
         friendsList.appendChild(li);
     });
     
-    friendsList.querySelectorAll('.btn-call').forEach(button => {
+    // Adjuntar escuchadores de eventos solo a los botones NO deshabilitados
+    friendsList.querySelectorAll('.btn-call:not(.disabled-call)').forEach(button => {
         button.addEventListener('click', (e) => initiateCall(e.currentTarget.dataset.uid));
     });
 }
@@ -377,7 +384,7 @@ function initializePeerConnection() {
         setupDataChannel(call); // Setup data channel for incoming call
     });
     
-    peer.on('error', err => console.error("PeerJS Error:", err)); // Fixed: added missing closing parenthesis
+    peer.on('error', err => console.error("PeerJS Error:", err)); 
 }
 
 async function startLocalStream() {

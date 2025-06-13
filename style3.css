@@ -255,6 +255,19 @@ ul li:hover {
 .btn-decline { color: #e74c3c; }
 
 
+/* Estilos para el botón de llamada deshabilitado */
+.btn-call.disabled-call {
+    color: #6c757d; /* Color gris para el botón deshabilitado */
+    cursor: not-allowed;
+    opacity: 0.5; /* Ligeramente atenuado */
+}
+
+.btn-call.disabled-call:hover {
+    background: none; /* Quita el efecto hover */
+    color: #6c757d; /* Mantiene el color gris al pasar el ratón */
+}
+
+
 /* Pantalla de Videollamada Inmersiva */
 #video-call-screen {
     background-color: #000;
