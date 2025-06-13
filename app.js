@@ -377,7 +377,7 @@ function initializePeerConnection() {
         setupDataChannel(call); // Setup data channel for incoming call
     });
     
-    peer.on('error', err => console.error("PeerJS Error:", err);
+    peer.on('error', err => console.error("PeerJS Error:", err)); // Fixed: added missing closing parenthesis
 }
 
 async function startLocalStream() {
