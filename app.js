@@ -285,26 +285,36 @@ function renderFriends(allUsers) {
     
     myFriends.forEach(friend => {
         const li = document.createElement('li');
-        // Determina si el botón de llamada debe ser clickeable y su estilo
-        const isFriendOnline = friend.isOnline;
-        const callButtonClass = isFriendOnline ? 'btn-call' : 'btn-call disabled-call';
-        // El botón siempre se renderiza, pero puede estar deshabilitado
-        const callButtonHtml = `<button class="${callButtonClass}" data-uid="${friend.uid}" ${isFriendOnline ? '' : 'disabled'}><i class="fas fa-phone"></i></button>`;
-
-        li.innerHTML = `
-             <div>
-                <span class="status-indicator ${friend.isOnline ? 'online' : 'offline'}"></span>
-                <span>${friend.username}</span>
-            </div>
-            <div class="user-actions">
-                ${callButtonHtml}
-            </div>
-        `;
-        friendsList.appendChild(li);
+        // El botón de llamada solo se renderiza si el amigo está online
+        if (friend.isOnline) {
+            li.innerHTML = `
+                <div>
+                    <span class="status-indicator online"></span>
+                    <span>${friend.username}</span>
+                </div>
+                <div class="user-actions">
+                    <button class="btn-call" data-uid="${friend.uid}"><i class="fas fa-phone"></i></button>
+                </div>
+            `;
+            friendsList.appendChild(li);
+        } else {
+            // Si el amigo está offline, aún lo mostramos en la lista de amigos, pero sin el botón de llamada interactivo
+            li.innerHTML = `
+                <div>
+                    <span class="status-indicator offline"></span>
+                    <span>${friend.username}</span>
+                </div>
+                <div class="user-actions">
+                    <!-- Opcional: mostrar un botón de llamada deshabilitado si se quiere la visualización -->
+                    <!-- <button class="btn-call disabled-call" disabled><i class="fas fa-phone"></i></button> -->
+                </div>
+            `;
+            friendsList.appendChild(li);
+        }
     });
     
-    // Adjuntar escuchadores de eventos solo a los botones NO deshabilitados
-    friendsList.querySelectorAll('.btn-call:not(.disabled-call)').forEach(button => {
+    // Adjuntar escuchadores de eventos solo a los botones que existen y no están deshabilitados (porque ya se filtran al no renderizarlos)
+    friendsList.querySelectorAll('.btn-call').forEach(button => {
         button.addEventListener('click', (e) => initiateCall(e.currentTarget.dataset.uid));
     });
 }
